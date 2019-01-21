@@ -1,0 +1,51 @@
+= Experimental terminal emulator
+
+"Terminix" is an experimental terminal emulator.
+This is a for-fun project and if you want a _good_ terminal emulator you should probably look elsewhere.
+This one is basically unusable.
+
+It uses the GNU Unifont and _only_ the Unifont at the moment.
+Test calls demonstrated that this can technically print Pikto but for some reason I am having trouble printing Klingon.
+
+== Dependencies
+
+Terminix requires the https://liballeg.org/[Allegro 5.x] series of game programming libraries.
+I know: game libraries for a terminal emulator?
+Well, it's the graphics APIs I work with the most so it's what I'm using for now.
+If I don't abandon this then I'll use something a bit more sensible.
+
+== Bugs
+
+More than you can count.
+
+* It sets `TERM` to `vt100` despite not truly being compatible, as many escape codes are unavailable.
+* Lots of things are hard-coded so I could just get this working.
+* Its a huge kludge of TODO's and disorganized code.
+
+Bash works but ViM doesn't.
+Go figure.
+
+== Special Thanks
+
+Special thanks to Paul Flo Williams, who's article on DEC-compatible ANSI escape code parsers is the only reason this exists.
+The flow chart is amazing!
+If you look in `vtinterp.c`, you can see how directly I followed it (although this implementation is far from perfect).
+Check it out: https://vt100.net/emu/dec_ansi_parser
+
+I would've used https://github.com/haberman/vtparse[Josh Haberman's public domain implementation], linked to from the article, but most of the fun of this project has been hand-coding an interpreter so it would've been way less enjoyable.
+
+== Copyright, License, and Warranty
+
+Copyright (C) 2018 Megan Ruggiero. All rights reserved.
+
+Permission to use, copy, modify, and distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.

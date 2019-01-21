@@ -409,7 +409,7 @@ csi_dispatch(unsigned char byte)
 		}
 
 		break;
-	case 0x48:
+	case 0x48: case 0x66:
 		if (parameters[0] > screen_height) parameters[0] = screen_height;
 		if (parameters[1] > screen_width) parameters[1] = screen_width;
 

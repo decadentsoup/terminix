@@ -22,7 +22,7 @@
 #include "vtinterp.h"
 
 #define MAX_PARAMETERS 16
-#define PARAMETER_MAX 65535
+#define PARAMETER_MAX 16383
 
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
@@ -56,6 +56,8 @@ bool keypad_application_mode;
 static const unsigned char DEVICE_ATTRS[] =
 	{ 0x1B, 0x5B, 0x3F, 0x31, 0x3B, 0x37, 0x63 };
 
+static int scroll_top, scroll_bottom;
+
 static enum state state;
 
 static unsigned char intermediate;
@@ -67,6 +69,9 @@ static unsigned char parameter_index;
 static struct cell attrs;
 static bool conceal;
 
+static void warp(int, int);
+static void warpto(int, int);
+
 static void interpret(unsigned char);
 static void print(long);
 static void execute(unsigned char);
@@ -75,7 +80,6 @@ static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
 static void csi_dispatch(unsigned char);
-static void move_cursor(unsigned char);
 static void erase_display(void);
 static void erase_line(void);
 static void set_mode(bool);
@@ -97,6 +101,8 @@ vtresize(int columns, int rows)
 
 	screen_width = columns;
 	screen_height = rows;
+	scroll_top = 0;
+	scroll_bottom = screen_height - 1;
 
 	if (cursor.x > columns - 1)
 		cursor.x = columns - 1;
@@ -127,6 +133,30 @@ vtreset()
 
 	transmit_disabled = false;
 	keypad_application_mode = false;
+
+	scroll_top = 0;
+	scroll_bottom = screen_height - 1;
+}
+
+static void
+warp(int dx, int dy)
+{
+	warpto(cursor.x + dx, cursor.y + dy);
+}
+
+static void
+warpto(int x, int y)
+{
+	int top, bottom;
+
+	top = mode[DECOM] ? scroll_top : 0;
+	bottom = mode[DECOM] ? scroll_bottom : screen_height - 1;
+
+	if (x < 0) x = 0; else if (x >= screen_width) x = screen_width - 1;
+	if (y < top) y = top; else if (y > bottom) y = bottom;
+
+	cursor.x = x;
+	cursor.y = y;
 }
 
 void
@@ -295,12 +325,17 @@ execute(unsigned char byte)
 static void
 newline()
 {
-	if (cursor.y < screen_height - 1) {
+	if (cursor.y < scroll_bottom) {
 		cursor.y++;
-	} else {
-		memmove(screen, &screen[screen_width], screen_width * (screen_height - 1) * sizeof(struct cell));
-		memset(&screen[screen_width * (screen_height - 1)], 0, screen_width * sizeof(struct cell));
+		return;
 	}
+
+	memmove(&screen[scroll_top * screen_width],
+		&screen[(scroll_top + 1) * screen_width],
+		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
+
+	memset(&screen[screen_width * scroll_bottom], 0,
+		screen_width * sizeof(struct cell));
 }
 
 static void
@@ -364,16 +399,21 @@ csi_dispatch(unsigned char byte)
 
 	switch (byte) {
 	case 0x41: case 0x42: case 0x43: case 0x44:
-		move_cursor(byte);
+		if (!parameters[0]) parameters[0] = 1;
+
+		switch (byte) {
+		case 0x41: warp(0, -parameters[0]); break;
+		case 0x42: warp(0, +parameters[0]); break;
+		case 0x43: warp(+parameters[0], 0); break;
+		case 0x44: warp(-parameters[0], 0); break;
+		}
+
 		break;
 	case 0x48:
-		// TODO : DECOM
-
 		if (parameters[0] > screen_height) parameters[0] = screen_height;
 		if (parameters[1] > screen_width) parameters[1] = screen_width;
 
-		cursor.y = parameters[0] ? parameters[0] - 1 : 0;
-		cursor.x = parameters[1] ? parameters[1] - 1 : 0;
+		warpto(parameters[1] - 1, parameters[0] - 1);
 
 		break;
 	case 0x4A:
@@ -395,35 +435,21 @@ csi_dispatch(unsigned char byte)
 	case 0x6D:
 		select_graphic_rendition();
 		break;
+	case 0x72:
+		if (!parameters[0]) parameters[0] = 1;
+		if (!parameters[1] || parameters[1] > screen_height)
+			parameters[1] = screen_height;
+
+		if (parameters[0] < parameters[1]) {
+			scroll_top = parameters[0] - 1;
+			scroll_bottom = parameters[1] - 1;
+			warpto(0, 0);
+		}
+		break;
 	default:
 		warnx("unrecognized CSI: %c/%x", byte, byte);
 		break;
 	}
-}
-
-static void
-move_cursor(unsigned char byte)
-{
-	int i;
-
-	if (parameters[0] == 0)
-		parameters[0] = 1;
-
-	for (i = 0; i < parameters[0]; i++)
-		switch (byte) {
-		case 0x41:
-			if (cursor.y > 0) cursor.y--;
-			break;
-		case 0x42:
-			if (cursor.y < screen_height - 1) cursor.y++;
-			break;
-		case 0x43:
-			if (cursor.x < screen_width - 1) cursor.x++;
-			break;
-		case 0x44:
-			if (cursor.x > 0) cursor.x--;
-			break;
-		}
 }
 
 static void
@@ -484,7 +510,7 @@ set_mode(bool value)
 			case 3: mode[DECCOLM] = value; break;
 			case 4: mode[DECSCLM] = value; break;
 			case 5: mode[DECSCNM] = value; break;
-			case 6: mode[DECOM] = value; break;
+			case 6: mode[DECOM] = value; warpto(0, 0); break;
 			case 7: mode[DECAWM] = value; break;
 			case 8: mode[DECARM] = value; break;
 			case 9: mode[DECINLM] = value; break;

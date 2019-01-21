@@ -5,7 +5,8 @@ This is a for-fun project and if you want a _good_ terminal emulator you should 
 This one is basically unusable.
 
 It uses the GNU Unifont and _only_ the Unifont at the moment.
-Test calls demonstrated that this can technically print Pikto but for some reason I am having trouble printing Klingon.
+Test calls demonstrated that the rendering can technically print Pikto but for some reason I am having trouble printing Klingon.
+Note, though, that UTF-8 parsing is not yet implemented so programs can't print Unicode directly.
 
 == Dependencies
 

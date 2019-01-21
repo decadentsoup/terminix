@@ -13,16 +13,18 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#include <err.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include "ptmx.h"
 #include "vtinterp.h"
 
-#include <err.h>//TODO
-
 #define MAX_PARAMETERS 16
 #define PARAMETER_MAX 65535
+
+#define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
 enum state {
 	STATE_GROUND,
@@ -44,7 +46,8 @@ enum state {
 };
 
 struct cursor cursor;
-struct cell screen[ROWS][COLS];
+struct cell *screen;
+int screen_width, screen_height;
 bool mode[MODE_COUNT];
 bool transmit_disabled;
 bool keypad_application_mode;
@@ -79,12 +82,36 @@ static void set_mode(bool);
 static void select_graphic_rendition(void);
 
 void
+vtcleanup()
+{
+	free(screen);
+}
+
+void
+vtresize(int columns, int rows)
+{
+	vtcleanup();
+
+	if (!(screen = calloc(columns * rows, sizeof(struct cell *))))
+		pdie("failed to allocate memory");
+
+	screen_width = columns;
+	screen_height = rows;
+
+	if (cursor.x > columns - 1)
+		cursor.x = columns - 1;
+
+	if (cursor.y > rows - 1)
+		cursor.y = rows - 1;
+}
+
+void
 vtreset()
 {
 	cursor.x = 0;
 	cursor.y = 0;
 
-	memset(screen, 0, sizeof(screen));
+	memset(screen, 0, screen_width * screen_height);
 
 	mode[LNM] = false;
 	mode[DECCKM] = false;
@@ -210,14 +237,17 @@ interpret(unsigned char byte)
 static void
 print(long ch)
 {
-	screen[cursor.y][cursor.x] = attrs;
+	struct cell *cell;
+
+	cell = &screen[cursor.x + cursor.y * screen_width];
+	*cell = attrs;
 
 	if (!conceal)
-		screen[cursor.y][cursor.x].code_point = ch;
+		cell->code_point = ch;
 
-	if (cursor.x < COLS - 1) {
+	if (cursor.x < screen_width - 1) {
 		cursor.x++;
-	} else if (cursor.x == COLS - 1 && mode[DECAWM]) {
+	} else if (cursor.x == screen_width - 1 && mode[DECAWM]) {
 		cursor.x = 0;
 		newline();
 	}
@@ -265,10 +295,11 @@ execute(unsigned char byte)
 static void
 newline()
 {
-	if (++cursor.y >= ROWS) {
-		cursor.y--;
-		memmove(&screen[0], &screen[1], sizeof(screen[0]) * (ROWS - 1));
-		memset(&screen[ROWS - 1], 0, sizeof(screen[0]));
+	if (cursor.y < screen_height - 1) {
+		cursor.y++;
+	} else {
+		memmove(screen, &screen[screen_width], screen_width * (screen_height - 1) * sizeof(struct cell));
+		memset(&screen[screen_width * (screen_height - 1)], 0, screen_width * sizeof(struct cell));
 	}
 }
 
@@ -338,8 +369,8 @@ csi_dispatch(unsigned char byte)
 	case 0x48:
 		// TODO : DECOM
 
-		if (parameters[0] > ROWS) parameters[0] = ROWS;
-		if (parameters[1] > COLS) parameters[1] = COLS;
+		if (parameters[0] > screen_height) parameters[0] = screen_height;
+		if (parameters[1] > screen_width) parameters[1] = screen_width;
 
 		cursor.y = parameters[0] ? parameters[0] - 1 : 0;
 		cursor.x = parameters[1] ? parameters[1] - 1 : 0;
@@ -384,10 +415,10 @@ move_cursor(unsigned char byte)
 			if (cursor.y > 0) cursor.y--;
 			break;
 		case 0x42:
-			if (cursor.y < ROWS - 1) cursor.y++;
+			if (cursor.y < screen_height - 1) cursor.y++;
 			break;
 		case 0x43:
-			if (cursor.x < COLS - 1) cursor.x++;
+			if (cursor.x < screen_width - 1) cursor.x++;
 			break;
 		case 0x44:
 			if (cursor.x > 0) cursor.x--;
@@ -402,21 +433,20 @@ erase_display()
 
 	switch (parameters[0]) {
 	case 0:
-		for (y = cursor.y; y < ROWS; y++)
-			for (x = cursor.x; x < COLS; x++)
-				screen[y][x] = attrs;
+		for (y = cursor.y; y < screen_height; y++)
+			for (x = cursor.x; x < screen_width; x++)
+				screen[x + y * screen_width] = attrs;
 		break;
 	case 1:
-		for (y = 0; y < ROWS; y++)
-			for (x = 0; x < COLS; x++) {
-				screen[y][x] = attrs;
+		for (y = 0; y < screen_height; y++)
+			for (x = 0; x < screen_width; x++) {
+				screen[x + y * screen_width] = attrs;
 				if (x == cursor.x && y == cursor.y) return;
 			}
 		break;
 	case 2:
-		for (y = 0; y < ROWS; y++)
-			for (x = 0; x < COLS; x++)
-				screen[y][x] = attrs;
+		for (x = 0; x < screen_width * screen_height; x++)
+			screen[x] = attrs;
 		break;
 	}
 }
@@ -427,13 +457,13 @@ erase_line()
 	int x, max;
 
 	switch (parameters[0]) {
-	case 0: x = cursor.x; max = COLS; break;
+	case 0: x = cursor.x; max = screen_width; break;
 	case 1: x = 0; max = cursor.x + 1; break;
-	case 2: x = 0; max = COLS; break;
+	case 2: x = 0; max = screen_width; break;
 	}
 
 	for (; x < max; x++)
-		screen[cursor.y][x] = attrs;
+		screen[x + cursor.y * screen_width] = attrs;
 }
 
 static void

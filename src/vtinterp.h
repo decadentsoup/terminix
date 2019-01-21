@@ -16,7 +16,6 @@
 #ifndef VTINTERP_H
 #define VTINTERP_H
 
-enum { COLS = 80, ROWS = 24 };
 enum { INTENSITY_NORMAL, INTENSITY_BOLD, INTENSITY_FAINT };
 enum { BLINK_NONE, BLINK_SLOW, BLINK_FAST };
 enum { UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE };
@@ -56,11 +55,14 @@ struct cell {
 };
 
 extern struct cursor cursor;
-extern struct cell screen[ROWS][COLS];
+extern struct cell *screen;
+extern int screen_width, screen_height;
 extern bool mode[MODE_COUNT];
 extern bool transmit_disabled;
 extern bool keypad_application_mode;
 
+void vtcleanup(void);
+void vtresize(int, int);
 void vtreset(void);
 void vtinterp(const unsigned char *, size_t);
 

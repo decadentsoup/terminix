@@ -51,6 +51,7 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 	ALLEGRO_EVENT event;
 
 	vtreset();
+	vtresize(80, 24);
 	init_ptmx("/bin/bash");
 	init_allegro();
 
@@ -83,6 +84,7 @@ handle_exit()
 	if (unifont_bmp) al_destroy_font(unifont_bmp);
 	al_uninstall_system();
 	deinit_ptmx();
+	vtcleanup();
 }
 
 static void
@@ -112,7 +114,8 @@ init_allegro()
 	if (!(unifont_csur = al_load_font("unifont-csur.ttf", 16, 0)))
 		die("failed to load unifont-csur.ttf");
 
-	if (!(display = al_create_display(COLS * CHARWIDTH, ROWS * CHARHEIGHT)))
+	if (!(display = al_create_display(screen_width * CHARWIDTH,
+		screen_height * CHARHEIGHT)))
 		die("failed to initialize display");
 
 	if (!(timer = al_create_timer(0.4)))
@@ -184,9 +187,9 @@ render()
 {
 	int x, y;
 
-	for (y = 0; y < ROWS; y++)
-		for (x = 0; x < COLS; x++)
-			render_cell(x, y, &screen[y][x]);
+	for (y = 0; y < screen_height; y++)
+		for (x = 0; x < screen_width; x++)
+			render_cell(x, y, &screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
 		al_draw_text(unifont_bmp, default_fg, cursor.x * CHARWIDTH,

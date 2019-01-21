@@ -71,11 +71,12 @@ static bool conceal;
 
 static void warp(int, int);
 static void warpto(int, int);
+static void scrolldown(void);
+static void newline(void);
 
 static void interpret(unsigned char);
 static void print(long);
 static void execute(unsigned char);
-static void newline(void);
 static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
@@ -158,6 +159,32 @@ warpto(int x, int y)
 
 	cursor.x = x;
 	cursor.y = y;
+}
+
+static void
+scrolldown(void)
+{
+	memmove(&screen[(scroll_top + 1) * screen_width],
+		&screen[scroll_top * screen_width],
+		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
+
+	memset(screen, 0, screen_width * sizeof(struct cell));
+}
+
+static void
+newline()
+{
+	if (cursor.y < scroll_bottom) {
+		cursor.y++;
+		return;
+	}
+
+	memmove(&screen[scroll_top * screen_width],
+		&screen[(scroll_top + 1) * screen_width],
+		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
+
+	memset(&screen[screen_width * scroll_bottom], 0,
+		screen_width * sizeof(struct cell));
 }
 
 void
@@ -324,22 +351,6 @@ execute(unsigned char byte)
 }
 
 static void
-newline()
-{
-	if (cursor.y < scroll_bottom) {
-		cursor.y++;
-		return;
-	}
-
-	memmove(&screen[scroll_top * screen_width],
-		&screen[(scroll_top + 1) * screen_width],
-		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
-
-	memset(&screen[screen_width * scroll_bottom], 0,
-		screen_width * sizeof(struct cell));
-}
-
-static void
 collect(unsigned char byte)
 {
 	if (intermediate)
@@ -386,6 +397,19 @@ esc_dispatch(unsigned char byte)
 		break;
 	case 0x3E:
 		keypad_application_mode = false;
+		break;
+	case 0x44:
+		newline();
+		break;
+	case 0x45:
+		cursor.x = 0;
+		newline();
+		break;
+	case 0x4D:
+		if (cursor.y > 0)
+			cursor.y--;
+		else
+			scrolldown();
 		break;
 	default:
 		warnx("esc_dispatch(final=%x/%c)", byte, byte);

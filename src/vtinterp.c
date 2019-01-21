@@ -79,6 +79,7 @@ static void newline(void);
 static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
+static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
 static void erase_display(void);
 static void erase_line(void);
@@ -117,7 +118,7 @@ vtreset()
 	cursor.x = 0;
 	cursor.y = 0;
 
-	memset(screen, 0, screen_width * screen_height);
+	memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
 
 	mode[LNM] = false;
 	mode[DECCKM] = false;
@@ -371,10 +372,13 @@ esc_dispatch(unsigned char byte)
 {
 	state = STATE_GROUND;
 
-	if (intermediate != 0) {
-		warnx("esc_dispatch(collect=%c final=%c", intermediate, byte);
+	if (intermediate == '#') {
+		esc_dispatch_private(byte);
 		return;
 	}
+
+	if (intermediate)
+		return;
 
 	switch (byte) {
 	case 0x3D:
@@ -382,6 +386,26 @@ esc_dispatch(unsigned char byte)
 		break;
 	case 0x3E:
 		keypad_application_mode = false;
+		break;
+	default:
+		warnx("esc_dispatch(final=%x/%c)", byte, byte);
+		break;
+	}
+}
+
+static void
+esc_dispatch_private(unsigned char byte)
+{
+	int i;
+
+	switch (byte) {
+	case 0x38:
+		memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
+		for (i = 0; i < screen_width * screen_height; i++)
+			screen[i].code_point = 0x45;
+		break;
+	default:
+		warnx("esc_dispatch_private(final=%x/%c)", byte, byte);
 		break;
 	}
 }

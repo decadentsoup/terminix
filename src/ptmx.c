@@ -1,5 +1,5 @@
 // ptmx.c - routines to manipulate pseudoterminals
-// Copyright (C) 2018 Megan Ruggiero. All rights reserved.
+// Copyright (C) 2019 Megan Ruggiero. All rights reserved.
 //
 // Permission to use, copy, modify, and distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above

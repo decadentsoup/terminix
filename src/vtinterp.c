@@ -412,6 +412,9 @@ esc_dispatch(unsigned char byte)
 		else
 			scrolldown();
 		break;
+	case 0x5A:
+		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
+		break;
 	case 0x63:
 		vtreset();
 		break;

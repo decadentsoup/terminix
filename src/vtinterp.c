@@ -554,14 +554,14 @@ set_mode(bool value)
 		} else if (intermediate == 0x3F) {
 			switch (parameters[i]) {
 			case 1: mode[DECCKM] = value; break;
-			case 2: mode[DECANM] = value; break;
-			case 3: mode[DECCOLM] = value; break;
-			case 4: mode[DECSCLM] = value; break;
-			case 5: mode[DECSCNM] = value; break;
+			// case 2: mode[DECANM] = value; break;
+			// case 3: mode[DECCOLM] = value; break;
+			// case 4: mode[DECSCLM] = value; break;
+			// case 5: mode[DECSCNM] = value; break;
 			case 6: mode[DECOM] = value; warpto(0, 0); break;
 			case 7: mode[DECAWM] = value; break;
 			case 8: mode[DECARM] = value; break;
-			case 9: mode[DECINLM] = value; break;
+			// case 9: mode[DECINLM] = value; break;
 			case 25: mode[DECTCEM] = value; break;
 			default: warnx("i=%c p=%i v=%i", intermediate, parameters[0], value); break;
 			}

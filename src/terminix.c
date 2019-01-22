@@ -140,6 +140,9 @@ handle_key(const ALLEGRO_KEYBOARD_EVENT *event)
 	if (transmit_disabled)
 		return;
 
+	if (!mode[DECARM] && event->repeat)
+		return;
+
 	// TODO : verify home/end codes are standard
 	switch (event->keycode) {
 	case ALLEGRO_KEY_HOME:	buffer_keys("\33[H"); return;

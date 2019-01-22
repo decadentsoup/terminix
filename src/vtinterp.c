@@ -411,6 +411,9 @@ esc_dispatch(unsigned char byte)
 		else
 			scrolldown();
 		break;
+	case 0x63:
+		vtreset();
+		break;
 	default:
 		warnx("esc_dispatch(final=%x/%c)", byte, byte);
 		break;

@@ -84,6 +84,7 @@ static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
 static void erase_display(void);
 static void erase_line(void);
+static void delete_character(void);
 static void device_status_report(void);
 static void set_mode(bool);
 static void select_graphic_rendition(void);
@@ -477,6 +478,9 @@ csi_dispatch(unsigned char byte)
 	case 0x4B:
 		erase_line();
 		break;
+	case 0x50:
+		delete_character();
+		break;
 	case 0x63:
 		if (parameters[0] == 0)
 			write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
@@ -548,6 +552,25 @@ erase_line()
 
 	for (; x < max; x++)
 		screen[x + cursor.y * screen_width] = attrs;
+}
+
+static void
+delete_character()
+{
+	int max;
+
+	if (parameters[0] == 0)
+		parameters[0] = 1;
+
+	if (parameters[0] > (max = screen_width - cursor.x - 1))
+		parameters[0] = max;
+
+	memmove(&screen[cursor.x + cursor.y * screen_width],
+		&screen[cursor.x + cursor.y * screen_width + parameters[0]],
+		(screen_width - parameters[0]) * sizeof(struct cell));
+
+	memset(&screen[(cursor.y + 1) * screen_width - parameters[0]], 0,
+		parameters[0] * sizeof(struct cell));
 }
 
 static void

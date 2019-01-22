@@ -323,10 +323,10 @@ execute(unsigned char byte)
 		warnx("TODO : Bell");
 		break;
 	case 0x08: // Backspace
-		if (cursor.x > 0) cursor.x--;
+		warp(-1, 0);
 		break;
 	case 0x09: // Horizontal Tab
-		warnx("TODO : Horizontal Tab");
+		warp(8 - cursor.x % 8, 0);
 		break;
 	case 0x0A: // Line Feed
 	case 0x0B: // Vertical Tab

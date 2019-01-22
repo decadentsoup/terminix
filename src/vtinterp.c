@@ -417,40 +417,40 @@ esc_dispatch(unsigned char byte)
 		return;
 
 	switch (byte) {
-	case 0x37:
+	case 0x37: // 7 - DECSC - Save Cursor
 		// TODO : save character set!
 		saved_cursor = cursor;
 		saved_attrs = attrs;
 		saved_last_column = last_column;
 		break;
-	case 0x38:
+	case 0x38: // 8 - DECRC - Restore Cursor
 		// TODO : restore character set!
 		cursor = saved_cursor;
 		attrs = saved_attrs;
 		last_column = saved_last_column;
 		break;
-	case 0x3D:
+	case 0x3D: // = - Enter Alternative Keypad Mode
 		keypad_application_mode = true;
 		break;
-	case 0x3E:
+	case 0x3E: // > - Exit Alternative Keypad Mode
 		keypad_application_mode = false;
 		break;
-	case 0x44:
+	case 0x44: // D - IND - Index
 		newline();
 		break;
-	case 0x45:
+	case 0x45: // E - NEL - Next Line
 		cursor.x = 0;
 		newline();
 		break;
-	case 0x4D:
+	case 0x4D: // M - RI - Reverse Index
 		if (cursor.y > 0) cursor.y--;
 		else scrolldown();
 		last_column = false;
 		break;
-	case 0x5A:
+	case 0x5A: // Z - Identify
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
 		break;
-	case 0x63:
+	case 0x63: // c - Reset
 		vtreset();
 		break;
 	default:
@@ -465,7 +465,7 @@ esc_dispatch_private(unsigned char byte)
 	int i;
 
 	switch (byte) {
-	case 0x38:
+	case 0x38: // 8 - DECALN - Screen Alignment Display
 		memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
 		for (i = 0; i < screen_width * screen_height; i++)
 			screen[i].code_point = 0x45;
@@ -488,7 +488,10 @@ csi_dispatch(unsigned char byte)
 		parameter_index = MAX_PARAMETERS - 1;
 
 	switch (byte) {
-	case 0x41: case 0x42: case 0x43: case 0x44:
+	case 0x41: // A - CUU - Cursor Up
+	case 0x42: // B - CUD - Cursor Down
+	case 0x43: // C - CUF - Cursor Forward
+	case 0x44: // D - CUB - Cursor Backward
 		if (!parameters[0]) parameters[0] = 1;
 
 		switch (byte) {
@@ -499,39 +502,40 @@ csi_dispatch(unsigned char byte)
 		}
 
 		break;
-	case 0x48: case 0x66:
+	case 0x48: // H - CUP - Cursor Position
+	case 0x66: // f - HVP - Horizontal and Vertical Position
 		if (parameters[0] > screen_height) parameters[0] = screen_height;
 		if (parameters[1] > screen_width) parameters[1] = screen_width;
 
 		warpto(parameters[1] - 1, parameters[0] - 1);
 
 		break;
-	case 0x4A:
+	case 0x4A: // J - ED - Erase In Display
 		erase_display();
 		break;
-	case 0x4B:
+	case 0x4B: // K - EL - Erase In Line
 		erase_line();
 		break;
-	case 0x50:
+	case 0x50: // P - DCH - Delete Character
 		delete_character();
 		break;
-	case 0x63:
+	case 0x63: // c - DA - Device Attributes
 		if (parameters[0] == 0)
 			write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
 		break;
-	case 0x68:
+	case 0x68: // h - SM - Set Mode
 		set_mode(true);
 		break;
-	case 0x6C:
+	case 0x6C: // l - RM - Reset Mode
 		set_mode(false);
 		break;
-	case 0x6D:
+	case 0x6D: // m - SGR - Select Graphic Rendition
 		select_graphic_rendition();
 		break;
-	case 0x6E:
+	case 0x6E: // n - DSR - Device Status Report
 		device_status_report();
 		break;
-	case 0x72:
+	case 0x72: // r - DECSTBM - Set Top and Bottom Margins
 		if (!parameters[0]) parameters[0] = 1;
 		if (!parameters[1] || parameters[1] > screen_height)
 			parameters[1] = screen_height;

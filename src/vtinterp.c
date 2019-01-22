@@ -84,6 +84,7 @@ static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
 static void erase_display(void);
 static void erase_line(void);
+static void device_status_report(void);
 static void set_mode(bool);
 static void select_graphic_rendition(void);
 
@@ -486,6 +487,9 @@ csi_dispatch(unsigned char byte)
 	case 0x6D:
 		select_graphic_rendition();
 		break;
+	case 0x6E:
+		device_status_report();
+		break;
 	case 0x72:
 		if (!parameters[0]) parameters[0] = 1;
 		if (!parameters[1] || parameters[1] > screen_height)
@@ -549,11 +553,11 @@ set_mode(bool value)
 	int i;
 
 	for (i = 0; i <= parameter_index; i++)
-		if (intermediate == 0x00) {
+		if (!intermediate) {
 			if (parameters[i] == 20)
 				mode[LNM] = value;
 			else
-				warnx("i=%c p=%i v=%i", intermediate, parameters[0], value);
+				warnx("set mode %i=%i", parameters[0], value);
 		} else if (intermediate == 0x3F) {
 			switch (parameters[i]) {
 			case 1: mode[DECCKM] = value; break;
@@ -566,7 +570,9 @@ set_mode(bool value)
 			case 8: mode[DECARM] = value; break;
 			// case 9: mode[DECINLM] = value; break;
 			case 25: mode[DECTCEM] = value; break;
-			default: warnx("i=%c p=%i v=%i", intermediate, parameters[0], value); break;
+			default:
+				warnx("set mode ?%i=%i", parameters[0], value);
+				break;
 			}
 		}
 }
@@ -628,4 +634,26 @@ select_graphic_rendition()
 		case 54: attrs.frame = FRAME_NONE; break;
 		case 55: attrs.overline = false; break;
 		}
+}
+
+static void
+device_status_report()
+{
+	// VT100 Ready, No malfunctions detected
+	static const unsigned char DEVICE_STATUS[] = { 0x1B, 0x5B, 0x6E };
+
+	// Cursor Position Report
+	static const unsigned char CPR_START[] = { 0x1B, 0x5B };
+	static const unsigned char CPR_MIDDLE[] = { 0x3B };
+	static const unsigned char CPR_END[] = { 0x52 };
+
+	if (parameters[0] == 5) {
+		write_ptmx(DEVICE_STATUS, sizeof(DEVICE_STATUS));
+	} else if (parameters[0] == 6) {
+		write_ptmx(CPR_START, sizeof(CPR_START));
+		write_ptmx_num((mode[DECOM] ? cursor.y - scroll_top : cursor.y) + 1);
+		write_ptmx(CPR_MIDDLE, sizeof(CPR_MIDDLE));
+		write_ptmx_num(cursor.x + 1);
+		write_ptmx(CPR_END, sizeof(CPR_END));
+	}
 }

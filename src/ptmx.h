@@ -18,6 +18,7 @@
 
 void init_ptmx(const char *);
 void deinit_ptmx(void);
+void write_ptmx_num(unsigned int);
 void write_ptmx(const unsigned char *, size_t);
 size_t read_ptmx(unsigned char *, size_t);
 

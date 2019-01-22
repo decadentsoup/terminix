@@ -26,6 +26,7 @@
 #include "ptmx.h"
 #include "vtinterp.h"
 
+#define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 #define pdiec(message) (pdie("[child] " message))
 
@@ -94,6 +95,28 @@ deinit_ptmx()
 {
 	if (ptmx >= 0 && close(ptmx))
 		warn("failed to close parent pseudoterminal");
+}
+
+void
+write_ptmx_num(unsigned int num)
+{
+	unsigned char buffer[5];
+	int i;
+
+	if (num > 65535)
+		die("tried to write a number that's too big");
+
+	if (num) {
+		for (i = sizeof(buffer) - 1; num; num /= 10) {
+			buffer[i--] = 0x30 + num % 10;
+		}
+
+		i++;
+	} else {
+		buffer[i = sizeof(buffer) - 1] = 0x30;
+	}
+
+	write_ptmx(&buffer[i], sizeof(buffer) - i);
 }
 
 void

@@ -68,9 +68,11 @@ static unsigned char parameter_index;
 
 static struct cell attrs;
 static bool conceal;
+static bool last_column;
 
 static struct cursor saved_cursor;
 static struct cell saved_attrs;
+static bool saved_last_column;
 
 static void warp(int, int);
 static void warpto(int, int);
@@ -146,9 +148,11 @@ vtreset()
 
 	memset(&attrs, 0, sizeof(attrs));
 	conceal = false;
+	last_column = false;
 
 	saved_cursor = cursor;
 	saved_attrs = attrs;
+	saved_last_column = last_column;
 }
 
 static void
@@ -170,6 +174,8 @@ warpto(int x, int y)
 
 	cursor.x = x;
 	cursor.y = y;
+
+	last_column = false;
 }
 
 static void
@@ -185,6 +191,8 @@ scrolldown(void)
 static void
 newline()
 {
+	last_column = false;
+
 	if (cursor.y < scroll_bottom) {
 		cursor.y++;
 		return;
@@ -308,18 +316,22 @@ print(long ch)
 {
 	struct cell *cell;
 
+	if (last_column) {
+		cursor.x = 0;
+		newline();
+		last_column = false;
+	}
+
 	cell = &screen[cursor.x + cursor.y * screen_width];
 	*cell = attrs;
 
 	if (!conceal)
 		cell->code_point = ch;
 
-	if (cursor.x < screen_width - 1) {
+	if (cursor.x < screen_width - 1)
 		cursor.x++;
-	} else if (cursor.x == screen_width - 1 && mode[DECAWM]) {
-		cursor.x = 0;
-		newline();
-	}
+	else if (cursor.x == screen_width - 1 && mode[DECAWM])
+		last_column = true;
 }
 
 static void
@@ -336,7 +348,9 @@ execute(unsigned char byte)
 		warp(-1, 0);
 		break;
 	case 0x09: // Horizontal Tab
+		byte = last_column;
 		warp(8 - cursor.x % 8, 0);
+		last_column = byte;
 		break;
 	case 0x0A: // Line Feed
 	case 0x0B: // Vertical Tab
@@ -407,11 +421,13 @@ esc_dispatch(unsigned char byte)
 		// TODO : save character set!
 		saved_cursor = cursor;
 		saved_attrs = attrs;
+		saved_last_column = last_column;
 		break;
 	case 0x38:
 		// TODO : restore character set!
 		cursor = saved_cursor;
 		attrs = saved_attrs;
+		last_column = saved_last_column;
 		break;
 	case 0x3D:
 		keypad_application_mode = true;
@@ -427,10 +443,9 @@ esc_dispatch(unsigned char byte)
 		newline();
 		break;
 	case 0x4D:
-		if (cursor.y > 0)
-			cursor.y--;
-		else
-			scrolldown();
+		if (cursor.y > 0) cursor.y--;
+		else scrolldown();
+		last_column = false;
 		break;
 	case 0x5A:
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
@@ -556,6 +571,8 @@ erase_display()
 			screen[x] = attrs;
 		break;
 	}
+
+	last_column = false;
 }
 
 static void
@@ -571,6 +588,8 @@ erase_line()
 
 	for (; x < max; x++)
 		screen[x + cursor.y * screen_width] = attrs;
+
+	last_column = false;
 }
 
 static void
@@ -590,6 +609,8 @@ delete_character()
 
 	memset(&screen[(cursor.y + 1) * screen_width - parameters[0]], 0,
 		parameters[0] * sizeof(struct cell));
+
+	last_column = false;
 }
 
 static void

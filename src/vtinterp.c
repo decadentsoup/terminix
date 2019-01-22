@@ -69,6 +69,9 @@ static unsigned char parameter_index;
 static struct cell attrs;
 static bool conceal;
 
+static struct cursor saved_cursor;
+static struct cell saved_attrs;
+
 static void warp(int, int);
 static void warpto(int, int);
 static void scrolldown(void);
@@ -140,6 +143,12 @@ vtreset()
 
 	scroll_top = 0;
 	scroll_bottom = screen_height - 1;
+
+	memset(&attrs, 0, sizeof(attrs));
+	conceal = false;
+
+	saved_cursor = cursor;
+	saved_attrs = attrs;
 }
 
 static void
@@ -394,6 +403,16 @@ esc_dispatch(unsigned char byte)
 		return;
 
 	switch (byte) {
+	case 0x37:
+		// TODO : save character set!
+		saved_cursor = cursor;
+		saved_attrs = attrs;
+		break;
+	case 0x38:
+		// TODO : restore character set!
+		cursor = saved_cursor;
+		attrs = saved_attrs;
+		break;
 	case 0x3D:
 		keypad_application_mode = true;
 		break;

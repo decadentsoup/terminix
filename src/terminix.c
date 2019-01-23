@@ -232,8 +232,10 @@ render_cell(int x, int y, struct cell *cell)
 	px = x * CHARWIDTH;
 	py = y * CHARHEIGHT;
 
-	if (cell->negative) { bg = default_fg; fg = default_bg; }
-	else { bg = default_bg; fg = default_fg; }
+	if (mode[DECSCNM] ^ cell->negative)
+		{ bg = default_fg; fg = default_bg; }
+	else
+		{ bg = default_bg; fg = default_fg; }
 
 	al_draw_text(unifont_bmp, bg, px, py, 0, "\u2588");
 

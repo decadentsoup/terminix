@@ -639,7 +639,7 @@ set_mode(bool value)
 					vtresize(80, screen_height);
 				break;
 			// case 4: mode[DECSCLM] = value; break;
-			// case 5: mode[DECSCNM] = value; break;
+			case 5: mode[DECSCNM] = value; break;
 			case 6: mode[DECOM] = value; warpto(0, 0); break;
 			case 7: mode[DECAWM] = value; break;
 			case 8: mode[DECARM] = value; break;

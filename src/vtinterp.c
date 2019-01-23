@@ -216,19 +216,21 @@ vtinterp(const unsigned char *buffer, size_t bufsize)
 #define COND(condition, action) \
 	do { if (condition) { action; return; } } while(0);
 
+#define NEXT(target) (state = STATE_##target)
+
 static void
 interpret(unsigned char byte)
 {
 	// substitute and cancel controls
 	if (byte == 0x18 || byte == 0x1A) {
-		state = STATE_GROUND;
+		NEXT(GROUND);
 		print(0xFFFD);
 		return;
 	}
 
 	// escape control
 	if (byte == 0x1B) {
-		state = STATE_ESCAPE;
+		NEXT(ESCAPE);
 		return;
 	}
 
@@ -245,13 +247,13 @@ interpret(unsigned char byte)
 		memset(parameters, 0, sizeof(parameters));
 
 		COND(byte <= 0x1F, execute(byte));
-		COND(byte <= 0x2F, collect(byte); state = STATE_ESCAPE_INTERMEDIATE);
-		COND(byte == 0x50, state = STATE_DCS_ENTRY);
-		COND(byte == 0x58, state = STATE_SOS_STRING);
-		COND(byte == 0x5B, state = STATE_CSI_ENTRY);
-		COND(byte == 0x5D, state = STATE_OSC_STRING);
-		COND(byte == 0x5E, state = STATE_PM_STRING);
- 		COND(byte == 0x5F, state = STATE_APC_STRING);
+		COND(byte <= 0x2F, collect(byte); NEXT(ESCAPE_INTERMEDIATE));
+		COND(byte == 0x50, NEXT(DCS_ENTRY));
+		COND(byte == 0x58, NEXT(SOS_STRING));
+		COND(byte == 0x5B, NEXT(CSI_ENTRY));
+		COND(byte == 0x5D, NEXT(OSC_STRING));
+		COND(byte == 0x5E, NEXT(PM_STRING));
+ 		COND(byte == 0x5F, NEXT(APC_STRING));
 		COND(byte <= 0x7E, esc_dispatch(byte));
 		break;
 	case STATE_ESCAPE_INTERMEDIATE:
@@ -261,29 +263,29 @@ interpret(unsigned char byte)
 		break;
 	case STATE_CSI_ENTRY:
 		COND(byte <= 0x1F, execute(byte));
-		COND(byte <= 0x2F, collect(byte); state = STATE_CSI_INTERMEDIATE);
-		COND(byte == 0x3A, state = STATE_CSI_IGNORE);
-		COND(byte <= 0x3B, param(byte); state = STATE_CSI_PARAM);
-		COND(byte <= 0x3F, collect(byte); state = STATE_CSI_PARAM);
+		COND(byte <= 0x2F, collect(byte); NEXT(CSI_INTERMEDIATE));
+		COND(byte == 0x3A, NEXT(CSI_IGNORE));
+		COND(byte <= 0x3B, param(byte); NEXT(CSI_PARAM));
+		COND(byte <= 0x3F, collect(byte); NEXT(CSI_PARAM));
 		COND(byte <= 0x7E, csi_dispatch(byte));
 		break;
 	case STATE_CSI_PARAM:
 		COND(byte <= 0x1F, execute(byte));
-		COND(byte <= 0x2F, collect(byte); state = STATE_CSI_INTERMEDIATE);
-		COND(byte == 0x3A, state = STATE_CSI_IGNORE);
+		COND(byte <= 0x2F, collect(byte); NEXT(CSI_INTERMEDIATE));
+		COND(byte == 0x3A, NEXT(CSI_IGNORE));
 		COND(byte <= 0x3B, param(byte));
-		COND(byte <= 0x3F, state = STATE_CSI_IGNORE);
+		COND(byte <= 0x3F, NEXT(CSI_IGNORE));
 		COND(byte <= 0x7E, csi_dispatch(byte));
 		break;
 	case STATE_CSI_INTERMEDIATE:
 		COND(byte <= 0x1F, execute(byte));
 		COND(byte <= 0x2F, collect(byte));
-		COND(byte <= 0x3F, state = STATE_CSI_IGNORE);
+		COND(byte <= 0x3F, NEXT(CSI_IGNORE));
 		COND(byte <= 0x7E, csi_dispatch(byte));
 		break;
 	case STATE_CSI_IGNORE:
 		COND(byte <= 0x1F, execute(byte));
-		COND(byte >= 0x40 && byte <= 0x7E, state = STATE_GROUND);
+		COND(byte >= 0x40 && byte <= 0x7E, NEXT(GROUND));
 		break;
 	case STATE_DCS_ENTRY:
 		warnx("TODO : STATE_DCS_ENTRY");
@@ -404,7 +406,7 @@ param(unsigned char byte)
 static void
 esc_dispatch(unsigned char byte)
 {
-	state = STATE_GROUND;
+	NEXT(GROUND);
 
 	if (intermediate == '#') {
 		esc_dispatch_private(byte);
@@ -479,7 +481,7 @@ esc_dispatch_private(unsigned char byte)
 static void
 csi_dispatch(unsigned char byte)
 {
-	state = STATE_GROUND;
+	NEXT(GROUND);
 
 	if (intermediate_bad)
 		return;
@@ -504,11 +506,7 @@ csi_dispatch(unsigned char byte)
 		break;
 	case 0x48: // H - CUP - Cursor Position
 	case 0x66: // f - HVP - Horizontal and Vertical Position
-		if (parameters[0] > screen_height) parameters[0] = screen_height;
-		if (parameters[1] > screen_width) parameters[1] = screen_width;
-
 		warpto(parameters[1] - 1, parameters[0] - 1);
-
 		break;
 	case 0x4A: // J - ED - Erase In Display
 		erase_display();

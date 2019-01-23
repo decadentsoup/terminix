@@ -555,26 +555,25 @@ csi_dispatch(unsigned char byte)
 static void
 erase_display()
 {
-	int x, y;
+	int i, n;
 
 	switch (parameters[0]) {
 	case 0:
-		for (y = cursor.y; y < screen_height; y++)
-			for (x = cursor.x; x < screen_width; x++)
-				screen[x + y * screen_width] = attrs;
+		i = cursor.x + cursor.y * screen_width;
+		n = screen_width * screen_height;
 		break;
 	case 1:
-		for (y = 0; y < screen_height; y++)
-			for (x = 0; x < screen_width; x++) {
-				screen[x + y * screen_width] = attrs;
-				if (x == cursor.x && y == cursor.y) return;
-			}
+		i = 0;
+		n = cursor.x + cursor.y * screen_width + 1;
 		break;
 	case 2:
-		for (x = 0; x < screen_width * screen_height; x++)
-			screen[x] = attrs;
+		i = 0;
+		n = screen_width * screen_height;
 		break;
 	}
+
+	for (; i < n; i++)
+		screen[i] = attrs;
 
 	last_column = false;
 }

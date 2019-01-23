@@ -32,12 +32,14 @@ static const ALLEGRO_COLOR default_fg = RGB(255, 255, 255);
 
 static ALLEGRO_FONT *unifont_bmp, *unifont_smp, *unifont_csur;
 static ALLEGRO_DISPLAY *display;
+static int display_width, display_height;
 static ALLEGRO_TIMER *timer;
 static ALLEGRO_EVENT_QUEUE *event_queue;
 static int64_t timer_count;
 
 static void handle_exit(void);
 static void init_allegro(void);
+static void update_size(void);
 static void handle_key(const ALLEGRO_KEYBOARD_EVENT *);
 static void buffer_keys(const char *);
 static void render(void);
@@ -69,6 +71,7 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 			}
 
 		vtinterp(buffer, read_ptmx(buffer, sizeof(buffer)));
+		update_size();
 		render();
 	}
 }
@@ -114,8 +117,9 @@ init_allegro()
 	if (!(unifont_csur = al_load_font("unifont-csur.ttf", 16, 0)))
 		die("failed to load unifont-csur.ttf");
 
-	if (!(display = al_create_display(screen_width * CHARWIDTH,
-		screen_height * CHARHEIGHT)))
+	display_width = screen_width * CHARWIDTH;
+	display_height = screen_height * CHARHEIGHT;
+	if (!(display = al_create_display(display_width, display_height)))
 		die("failed to initialize display");
 
 	if (!(timer = al_create_timer(0.4)))
@@ -130,6 +134,21 @@ init_allegro()
 		al_get_display_event_source(display));
 
 	al_start_timer(timer);
+}
+
+static void
+update_size()
+{
+	int width, height;
+
+	width = screen_width * CHARWIDTH;
+	height = screen_height * CHARHEIGHT;
+
+	if (display_width != width || display_height != height) {
+		display_width = width;
+		display_height = height;
+		al_resize_display(display, width, height);
+	}
 }
 
 static void

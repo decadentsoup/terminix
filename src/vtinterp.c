@@ -112,12 +112,8 @@ vtresize(int columns, int rows)
 	screen_height = rows;
 	scroll_top = 0;
 	scroll_bottom = screen_height - 1;
-
-	if (cursor.x > columns - 1)
-		cursor.x = columns - 1;
-
-	if (cursor.y > rows - 1)
-		cursor.y = rows - 1;
+	cursor.x = 0;
+	cursor.y = 0;
 }
 
 void
@@ -631,7 +627,12 @@ set_mode(bool value)
 			switch (parameters[i]) {
 			case 1: mode[DECCKM] = value; break;
 			// case 2: mode[DECANM] = value; break;
-			// case 3: mode[DECCOLM] = value; break;
+			case 3:
+				if ((mode[DECCOLM] = value))
+					vtresize(132, screen_height);
+				else
+					vtresize(80, screen_height);
+				break;
 			// case 4: mode[DECSCLM] = value; break;
 			// case 5: mode[DECSCNM] = value; break;
 			case 6: mode[DECOM] = value; warpto(0, 0); break;

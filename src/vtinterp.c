@@ -72,6 +72,7 @@ static bool last_column;
 
 static struct cursor saved_cursor;
 static struct cell saved_attrs;
+static bool saved_conceal;
 static bool saved_last_column;
 
 static void warp(int, int);
@@ -148,6 +149,7 @@ vtreset()
 
 	saved_cursor = cursor;
 	saved_attrs = attrs;
+	saved_conceal = conceal;
 	saved_last_column = last_column;
 }
 
@@ -417,12 +419,14 @@ esc_dispatch(unsigned char byte)
 		// TODO : save character set!
 		saved_cursor = cursor;
 		saved_attrs = attrs;
+		saved_conceal = conceal;
 		saved_last_column = last_column;
 		break;
 	case 0x38: // 8 - DECRC - Restore Cursor
 		// TODO : restore character set!
 		cursor = saved_cursor;
 		attrs = saved_attrs;
+		conceal = saved_conceal;
 		last_column = saved_last_column;
 		break;
 	case 0x3D: // = - Enter Alternative Keypad Mode

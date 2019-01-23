@@ -163,13 +163,9 @@ warp(int dx, int dy)
 static void
 warpto(int x, int y)
 {
-	int top, bottom;
-
-	top = mode[DECOM] ? scroll_top : 0;
-	bottom = mode[DECOM] ? scroll_bottom : screen_height - 1;
-
+	if (mode[DECOM]) y += scroll_top;
 	if (x < 0) x = 0; else if (x >= screen_width) x = screen_width - 1;
-	if (y < top) y = top; else if (y > bottom) y = bottom;
+	if (y < 0) y = 0; else if (y >= screen_height) y = screen_height - 1;
 
 	cursor.x = x;
 	cursor.y = y;
@@ -350,12 +346,14 @@ execute(unsigned char byte)
 		warnx("TODO : Bell");
 		break;
 	case 0x08: // Backspace
-		warp(-1, 0);
+		if (cursor.x > 0) {
+			cursor.x--;
+			last_column = false;
+		}
 		break;
 	case 0x09: // Horizontal Tab
-		byte = last_column;
-		warp(8 - cursor.x % 8, 0);
-		last_column = byte;
+		cursor.x += 8 - cursor.x % 8;
+		if (cursor.x >= screen_width) cursor.x = screen_width - 1;
 		break;
 	case 0x0A: // Line Feed
 	case 0x0B: // Vertical Tab

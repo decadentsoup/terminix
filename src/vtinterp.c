@@ -77,6 +77,7 @@ static bool saved_last_column;
 
 static void warp(int, int);
 static void warpto(int, int);
+static void scrollup(void);
 static void scrolldown(void);
 static void newline(void);
 
@@ -177,7 +178,18 @@ warpto(int x, int y)
 }
 
 static void
-scrolldown(void)
+scrollup()
+{
+	memmove(&screen[scroll_top * screen_width],
+		&screen[(scroll_top + 1) * screen_width],
+		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
+
+	memset(&screen[screen_width * scroll_bottom], 0,
+		screen_width * sizeof(struct cell));
+}
+
+static void
+scrolldown()
 {
 	memmove(&screen[(scroll_top + 1) * screen_width],
 		&screen[scroll_top * screen_width],
@@ -191,17 +203,10 @@ newline()
 {
 	last_column = false;
 
-	if (cursor.y < scroll_bottom) {
+	if (cursor.y < scroll_bottom)
 		cursor.y++;
-		return;
-	}
-
-	memmove(&screen[scroll_top * screen_width],
-		&screen[(scroll_top + 1) * screen_width],
-		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
-
-	memset(&screen[screen_width * scroll_bottom], 0,
-		screen_width * sizeof(struct cell));
+	else
+		scrollup();
 }
 
 void

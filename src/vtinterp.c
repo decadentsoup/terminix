@@ -66,6 +66,7 @@ static bool intermediate_bad;
 static unsigned short parameters[MAX_PARAMETERS];
 static unsigned char parameter_index;
 
+static bool *tabstops;
 static struct cell attrs;
 static bool conceal;
 static bool last_column;
@@ -100,15 +101,24 @@ void
 vtcleanup()
 {
 	free(screen);
+	free(tabstops);
 }
 
 void
 vtresize(int columns, int rows)
 {
+	int i;
+
 	vtcleanup();
 
-	if (!(screen = calloc(columns * rows, sizeof(struct cell *))))
-		pdie("failed to allocate memory");
+	if (!(screen = calloc(columns * rows, sizeof(struct cell))))
+		pdie("failed to allocate screen memory");
+
+	if (!(tabstops = calloc(columns, sizeof(bool))))
+		pdie("failed to allocate tabstop memory");
+
+	for (i = 8; i < columns; i += 8)
+		tabstops[i] = true;
 
 	screen_width = columns;
 	screen_height = rows;
@@ -121,10 +131,15 @@ vtresize(int columns, int rows)
 void
 vtreset()
 {
+	int i;
+
 	cursor.x = 0;
 	cursor.y = 0;
 
 	memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
+	memset(tabstops, 0, screen_width * sizeof(bool));
+	for (i = 8; i < screen_width; i += 8)
+		tabstops[i] = true;
 
 	mode[LNM] = false;
 	mode[DECCKM] = false;
@@ -352,7 +367,8 @@ execute(unsigned char byte)
 		}
 		break;
 	case 0x09: // Horizontal Tab
-		cursor.x += 8 - cursor.x % 8;
+		for (cursor.x++; cursor.x < screen_width && !tabstops[cursor.x];
+			cursor.x++);
 		if (cursor.x >= screen_width) cursor.x = screen_width - 1;
 		break;
 	case 0x0A: // Line Feed
@@ -434,10 +450,10 @@ esc_dispatch(unsigned char byte)
 		conceal = saved_conceal;
 		last_column = saved_last_column;
 		break;
-	case 0x3D: // = - Enter Alternative Keypad Mode
+	case 0x3D: // = - DECKPAM - Keypad Application Mode
 		keypad_application_mode = true;
 		break;
-	case 0x3E: // > - Exit Alternative Keypad Mode
+	case 0x3E: // > - DECKPNM - Keypad Numeric Mode
 		keypad_application_mode = false;
 		break;
 	case 0x44: // D - IND - Index
@@ -447,15 +463,18 @@ esc_dispatch(unsigned char byte)
 		cursor.x = 0;
 		newline();
 		break;
+	case 0x48: // H - HTS - Horizontal Tabulation Set
+		tabstops[cursor.x] = true;
+		break;
 	case 0x4D: // M - RI - Reverse Index
 		if (cursor.y > 0) cursor.y--;
 		else scrolldown();
 		last_column = false;
 		break;
-	case 0x5A: // Z - Identify
+	case 0x5A: // Z - DECID - Identify Terminal
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
 		break;
-	case 0x63: // c - Reset
+	case 0x63: // c - RIS - Reset To Initial Set
 		vtreset();
 		break;
 	default:
@@ -523,6 +542,12 @@ csi_dispatch(unsigned char byte)
 	case 0x63: // c - DA - Device Attributes
 		if (parameters[0] == 0)
 			write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
+		break;
+	case 0x67: // g - TBC - Tabulation Clear
+		if (!parameters[0])
+			tabstops[cursor.x] = false;
+		else if (parameters[0] == 3)
+			memset(tabstops, 0, screen_width * sizeof(bool));
 		break;
 	case 0x68: // h - SM - Set Mode
 		set_mode(true);

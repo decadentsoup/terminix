@@ -23,8 +23,7 @@ More than you can count.
 * Lots of things are hard-coded so I could just get this working.
 * Its a huge kludge of TODO's and disorganized code.
 
-Bash works but ViM doesn't.
-Go figure.
+But hey, ViM works now.
 
 == Special Thanks
 

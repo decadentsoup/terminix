@@ -740,7 +740,7 @@ static void
 device_status_report()
 {
 	// VT100 Ready, No malfunctions detected
-	static const unsigned char DEVICE_STATUS[] = { 0x1B, 0x5B, 0x6E };
+	static const unsigned char DEVICE_STATUS[] = { 0x1B, 0x5B, 0x30, 0x6E };
 
 	// Cursor Position Report
 	static const unsigned char CPR_START[] = { 0x1B, 0x5B };

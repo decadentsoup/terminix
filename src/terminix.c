@@ -211,7 +211,8 @@ render()
 
 	for (y = 0; y < screen_height; y++)
 		for (x = 0; x < screen_width; x++)
-			render_cell(x, y, &screen[x + y * screen_width]);
+			render_cell(x * CHARWIDTH, y * CHARHEIGHT,
+				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
 		al_draw_glyph(unifont_bmp, default_fg, cursor.x * CHARWIDTH,
@@ -221,15 +222,11 @@ render()
 }
 
 static void
-render_cell(int x, int y, struct cell *cell)
+render_cell(int px, int py, struct cell *cell)
 {
-	int px, py;
 	ALLEGRO_COLOR bg, fg;
 	long code_point;
 	ALLEGRO_FONT *font;
-
-	px = x * CHARWIDTH;
-	py = y * CHARHEIGHT;
 
 	if (mode[DECSCNM] ^ cell->negative)
 		{ bg = default_fg; fg = default_bg; }

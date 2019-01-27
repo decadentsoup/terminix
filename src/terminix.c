@@ -214,8 +214,8 @@ render()
 			render_cell(x, y, &screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
-		al_draw_text(unifont_bmp, default_fg, cursor.x * CHARWIDTH,
-			cursor.y * CHARHEIGHT, 0, "\u2588");
+		al_draw_glyph(unifont_bmp, default_fg, cursor.x * CHARWIDTH,
+			cursor.y * CHARHEIGHT, 0x2588);
 
 	al_flip_display();
 }
@@ -226,7 +226,6 @@ render_cell(int x, int y, struct cell *cell)
 	int px, py;
 	ALLEGRO_COLOR bg, fg;
 	long code_point;
-	char utf8[5];
 	ALLEGRO_FONT *font;
 
 	px = x * CHARWIDTH;
@@ -237,7 +236,7 @@ render_cell(int x, int y, struct cell *cell)
 	else
 		{ bg = default_bg; fg = default_fg; }
 
-	al_draw_text(unifont_bmp, bg, px, py, 0, "\u2588");
+	al_draw_glyph(unifont_bmp, bg, px, py, 0x2588);
 
 	if (cell->blink == BLINK_SLOW && timer_count / 2 % 2)
 		return;
@@ -245,8 +244,8 @@ render_cell(int x, int y, struct cell *cell)
 	if (cell->blink == BLINK_FAST && timer_count % 2)
 		return;
 
-	code_point = cell->code_point;
-	mkutf8((unsigned char *)utf8, code_point);
+	if (!(code_point = cell->code_point))
+		code_point = 0x20;
 
 	if (code_point < 0xFFFF) font = unifont_bmp;
 	else if (code_point < 0x1FFFF) font = unifont_smp;
@@ -258,22 +257,22 @@ render_cell(int x, int y, struct cell *cell)
 		fg.b /= 2;
 	}
 
-	al_draw_text(font, fg, px, py, 0, utf8);
+	al_draw_glyph(font, fg, px, py, code_point);
 
 	if (cell->intensity == INTENSITY_BOLD)
-		al_draw_text(font, fg, px + 1, py, 0, utf8);
+		al_draw_glyph(font, fg, px + 1, py, code_point);
 
 	if (cell->underline)
-		al_draw_text(unifont_bmp, fg, px + CHARWIDTH, py, 0, "\u0332");
+		al_draw_glyph(unifont_bmp, fg, px + CHARWIDTH, py, 0x0332);
 
 	if (cell->underline == UNDERLINE_DOUBLE)
-		al_draw_text(unifont_bmp, fg, px + CHARWIDTH, py + 2, 0, "\u0332");
+		al_draw_glyph(unifont_bmp, fg, px + CHARWIDTH, py + 2, 0x0332);
 
 	if (cell->crossed_out)
-		al_draw_text(unifont_bmp, fg, px, py, 0, "\u2015");
+		al_draw_glyph(unifont_bmp, fg, px, py, 0x2015);
 
 	if (cell->overline)
-		al_draw_text(unifont_bmp, fg, px + CHARWIDTH, py, 0, "\u0305");
+		al_draw_glyph(unifont_bmp, fg, px + CHARWIDTH, py, 0x0305);
 }
 
 static void

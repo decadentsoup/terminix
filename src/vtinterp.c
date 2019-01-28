@@ -61,7 +61,6 @@ static int scroll_top, scroll_bottom;
 static enum state state;
 
 static unsigned char intermediate;
-static bool intermediate_bad;
 
 static unsigned short parameters[MAX_PARAMETERS];
 static unsigned char parameter_index;
@@ -89,6 +88,7 @@ static void param(unsigned char);
 static void esc_dispatch(unsigned char);
 static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
+static void csi_dispatch_private(unsigned char);
 static void erase_display(void);
 static void erase_line(void);
 static void delete_character(void);
@@ -255,8 +255,6 @@ interpret(unsigned char byte)
 		break;
 	case STATE_ESCAPE:
 		intermediate = 0;
-		intermediate_bad = false;
-
 		parameter_index = 0;
 		memset(parameters, 0, sizeof(parameters));
 
@@ -395,10 +393,7 @@ execute(unsigned char byte)
 static void
 collect(unsigned char byte)
 {
-	if (intermediate)
-		intermediate_bad = true;
-	else
-		intermediate = byte;
+	intermediate = intermediate ? 0xFF : byte;
 }
 
 static void
@@ -425,7 +420,7 @@ esc_dispatch(unsigned char byte)
 {
 	NEXT(GROUND);
 
-	if (intermediate == '#') {
+	if (intermediate == 0x23) {
 		esc_dispatch_private(byte);
 		return;
 	}
@@ -503,7 +498,12 @@ csi_dispatch(unsigned char byte)
 {
 	NEXT(GROUND);
 
-	if (intermediate_bad)
+	if (intermediate == 0x3F) {
+		csi_dispatch_private(byte);
+		return;
+	}
+
+	if (intermediate)
 		return;
 
 	if (parameter_index == MAX_PARAMETERS)
@@ -572,6 +572,19 @@ csi_dispatch(unsigned char byte)
 		break;
 	default:
 		warnx("unrecognized CSI: %c/%x", byte, byte);
+		break;
+	}
+}
+
+static void
+csi_dispatch_private(unsigned char byte)
+{
+	switch (byte) {
+	case 0x68: // h - SM - Set Mode
+		set_mode(true);
+		break;
+	case 0x6C: // l - RM - Reset Mode
+		set_mode(false);
 		break;
 	}
 }
@@ -681,9 +694,6 @@ static void
 select_graphic_rendition()
 {
 	int i;
-
-	if (intermediate)
-		return;
 
 	for (i = 0; i <= parameter_index; i++)
 		switch (parameters[i]) {

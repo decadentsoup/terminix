@@ -178,9 +178,13 @@ warp(int dx, int dy)
 static void
 warpto(int x, int y)
 {
-	if (mode[DECOM]) y += scroll_top;
+	int miny, maxy;
+
+	miny = mode[DECOM] ? scroll_top : 0;
+	maxy = mode[DECOM] ? scroll_bottom : screen_height - 1;
+
 	if (x < 0) x = 0; else if (x >= screen_width) x = screen_width - 1;
-	if (y < 0) y = 0; else if (y >= screen_height) y = screen_height - 1;
+	if (y < miny) y = miny; else if (y > maxy) y = maxy;
 
 	cursor.x = x;
 	cursor.y = y;
@@ -206,7 +210,8 @@ scrolldown()
 		&screen[scroll_top * screen_width],
 		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
 
-	memset(screen, 0, screen_width * sizeof(struct cell));
+	memset(&screen[screen_width * scroll_top], 0,
+		screen_width * sizeof(struct cell));
 }
 
 static void
@@ -467,7 +472,7 @@ esc_dispatch(unsigned char byte)
 		tabstops[cursor.x] = true;
 		break;
 	case 0x4D: // M - RI - Reverse Index
-		if (cursor.y > 0) cursor.y--;
+		if (cursor.y > scroll_top) warp(0, -1);
 		else scrolldown();
 		last_column = false;
 		break;
@@ -528,7 +533,7 @@ csi_dispatch(unsigned char byte)
 		break;
 	case 0x48: // H - CUP - Cursor Position
 	case 0x66: // f - HVP - Horizontal and Vertical Position
-		warpto(parameters[1] - 1, parameters[0] - 1);
+		warpto(parameters[1] - 1, parameters[0] - 1 + (mode[DECOM] ? scroll_top : 0));
 		break;
 	case 0x4A: // J - ED - Erase In Display
 		erase_display();
@@ -569,7 +574,7 @@ csi_dispatch(unsigned char byte)
 		if (parameters[0] < parameters[1]) {
 			scroll_top = parameters[0] - 1;
 			scroll_bottom = parameters[1] - 1;
-			warpto(0, 0);
+			warpto(0, mode[DECOM] ? scroll_top : 0);
 		}
 		break;
 	default:
@@ -665,7 +670,9 @@ set_mode(bool value)
 				break;
 			// case 4: mode[DECSCLM] = value; break;
 			case 5: mode[DECSCNM] = value; break;
-			case 6: mode[DECOM] = value; warpto(0, 0); break;
+			case 6:
+				warpto(0, (mode[DECOM] = value) ? scroll_top : 0);
+				break;
 			case 7: mode[DECAWM] = value; break;
 			case 8: mode[DECARM] = value; break;
 			// case 9: mode[DECINLM] = value; break;

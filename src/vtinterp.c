@@ -76,7 +76,6 @@ static struct cell saved_attrs;
 static bool saved_conceal;
 static bool saved_last_column;
 
-static void warp(int, int);
 static void warpto(int, int);
 static void scrollup(void);
 static void scrolldown(void);
@@ -167,12 +166,6 @@ vtreset()
 	saved_attrs = attrs;
 	saved_conceal = conceal;
 	saved_last_column = last_column;
-}
-
-static void
-warp(int dx, int dy)
-{
-	warpto(cursor.x + dx, cursor.y + dy);
 }
 
 static void
@@ -472,7 +465,7 @@ esc_dispatch(unsigned char byte)
 		tabstops[cursor.x] = true;
 		break;
 	case 0x4D: // M - RI - Reverse Index
-		if (cursor.y > scroll_top) warp(0, -1);
+		if (cursor.y > scroll_top) warpto(cursor.x, cursor.y - 1);
 		else scrolldown();
 		last_column = false;
 		break;
@@ -524,10 +517,10 @@ csi_dispatch(unsigned char byte)
 		if (!parameters[0]) parameters[0] = 1;
 
 		switch (byte) {
-		case 0x41: warp(0, -parameters[0]); break;
-		case 0x42: warp(0, +parameters[0]); break;
-		case 0x43: warp(+parameters[0], 0); break;
-		case 0x44: warp(-parameters[0], 0); break;
+		case 0x41: warpto(cursor.x, cursor.y - parameters[0]); break;
+		case 0x42: warpto(cursor.x, cursor.y + parameters[0]); break;
+		case 0x43: warpto(cursor.x + parameters[0], cursor.y); break;
+		case 0x44: warpto(cursor.x - parameters[0], cursor.y); break;
 		}
 
 		break;

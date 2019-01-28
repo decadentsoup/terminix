@@ -738,6 +738,11 @@ select_graphic_rendition()
 		case 27: attrs.negative = false; break;
 		case 28: conceal = false; break;
 		case 29: attrs.crossed_out = false; break;
+		case 38: case 48: // ignore next few arguments
+			if (i++ == parameter_index) return;
+			if (parameters[i] == 5) i++;
+			else if (parameters[i] == 2) i += 3;
+			break;
 		case 51: attrs.frame = FRAME_FRAMED; break;
 		case 52: attrs.frame = FRAME_ENCIRCLED; break;
 		case 53: attrs.overline = true; break;

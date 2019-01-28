@@ -22,6 +22,8 @@ enum { UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE };
 enum { FRAME_NONE, FRAME_FRAMED, FRAME_ENCIRCLED };
 
 enum {
+	TRANSMIT_DISABLED,
+	DECKPAM,
 	LNM,
 	DECCKM,
 	DECANM,
@@ -34,10 +36,6 @@ enum {
 	DECINLM,
 	DECTCEM,
 	MODE_COUNT
-};
-
-struct cursor {
-	short x, y;
 };
 
 struct cell {
@@ -54,12 +52,16 @@ struct cell {
 	bool		overline:1;
 };
 
+struct cursor {
+	struct cell attrs;
+	short x, y;
+	bool conceal, last_column;
+};
+
 extern struct cursor cursor;
 extern struct cell *screen;
 extern int screen_width, screen_height;
 extern bool mode[MODE_COUNT];
-extern bool transmit_disabled;
-extern bool keypad_application_mode;
 
 void vtcleanup(void);
 void vtresize(int, int);

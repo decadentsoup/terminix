@@ -49,31 +49,19 @@ struct cursor cursor;
 struct cell *screen;
 int screen_width, screen_height;
 bool mode[MODE_COUNT];
-bool transmit_disabled;
-bool keypad_application_mode;
+
+static bool *tabstops;
+static int scroll_top, scroll_bottom;
+static struct cursor saved_cursor;
+
+static enum state state;
+static unsigned char intermediate;
+static unsigned short parameters[MAX_PARAMETERS];
+static unsigned char parameter_index;
 
 // VT100 with Processor Option, Advanced Video Option, and Graphics Option
 static const unsigned char DEVICE_ATTRS[] =
 	{ 0x1B, 0x5B, 0x3F, 0x31, 0x3B, 0x37, 0x63 };
-
-static int scroll_top, scroll_bottom;
-
-static enum state state;
-
-static unsigned char intermediate;
-
-static unsigned short parameters[MAX_PARAMETERS];
-static unsigned char parameter_index;
-
-static bool *tabstops;
-static struct cell attrs;
-static bool conceal;
-static bool last_column;
-
-static struct cursor saved_cursor;
-static struct cell saved_attrs;
-static bool saved_conceal;
-static bool saved_last_column;
 
 static void warpto(int, int);
 static void scrollup(void);
@@ -132,14 +120,11 @@ vtreset()
 {
 	int i;
 
-	cursor.x = 0;
-	cursor.y = 0;
-
+	memset(&cursor, 0, sizeof(cursor));
 	memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
-	memset(tabstops, 0, screen_width * sizeof(bool));
-	for (i = 8; i < screen_width; i += 8)
-		tabstops[i] = true;
 
+	mode[TRANSMIT_DISABLED] = false;
+	mode[DECKPAM] = false;
 	mode[LNM] = false;
 	mode[DECCKM] = false;
 	mode[DECANM] = true;
@@ -152,20 +137,13 @@ vtreset()
 	mode[DECINLM] = true;
 	mode[DECTCEM] = true;
 
-	transmit_disabled = false;
-	keypad_application_mode = false;
+	memset(tabstops, 0, screen_width * sizeof(bool));
+	for (i = 8; i < screen_width; i += 8)
+		tabstops[i] = true;
 
 	scroll_top = 0;
 	scroll_bottom = screen_height - 1;
-
-	memset(&attrs, 0, sizeof(attrs));
-	conceal = false;
-	last_column = false;
-
 	saved_cursor = cursor;
-	saved_attrs = attrs;
-	saved_conceal = conceal;
-	saved_last_column = last_column;
 }
 
 static void
@@ -181,8 +159,7 @@ warpto(int x, int y)
 
 	cursor.x = x;
 	cursor.y = y;
-
-	last_column = false;
+	cursor.last_column = false;
 }
 
 static void
@@ -210,7 +187,7 @@ scrolldown()
 static void
 newline()
 {
-	last_column = false;
+	cursor.last_column = false;
 
 	if (cursor.y < scroll_bottom)
 		cursor.y++;
@@ -328,22 +305,22 @@ print(long ch)
 {
 	struct cell *cell;
 
-	if (last_column) {
+	if (cursor.last_column) {
 		cursor.x = 0;
 		newline();
-		last_column = false;
+		cursor.last_column = false;//XXX
 	}
 
 	cell = &screen[cursor.x + cursor.y * screen_width];
-	*cell = attrs;
+	*cell = cursor.attrs;
 
-	if (!conceal)
+	if (!cursor.conceal)
 		cell->code_point = ch;
 
 	if (cursor.x < screen_width - 1)
 		cursor.x++;
 	else if (cursor.x == screen_width - 1 && mode[DECAWM])
-		last_column = true;
+		cursor.last_column = true;
 }
 
 static void
@@ -359,7 +336,7 @@ execute(unsigned char byte)
 	case 0x08: // Backspace
 		if (cursor.x > 0) {
 			cursor.x--;
-			last_column = false;
+			cursor.last_column = false;
 		}
 		break;
 	case 0x09: // Horizontal Tab
@@ -382,10 +359,10 @@ execute(unsigned char byte)
 		warnx("TODO : Shift Out -- G0 character set");
 		break;
 	case 0x11: // Device Control 1 - XON
-		transmit_disabled = false;
+		mode[TRANSMIT_DISABLED] = false;
 		break;
 	case 0x13: // Device Control 3 - XOFF
-		transmit_disabled = true;
+		mode[TRANSMIT_DISABLED] = true;
 		break;
 	}
 }
@@ -432,22 +409,16 @@ esc_dispatch(unsigned char byte)
 	case 0x37: // 7 - DECSC - Save Cursor
 		// TODO : save character set!
 		saved_cursor = cursor;
-		saved_attrs = attrs;
-		saved_conceal = conceal;
-		saved_last_column = last_column;
 		break;
 	case 0x38: // 8 - DECRC - Restore Cursor
 		// TODO : restore character set!
 		cursor = saved_cursor;
-		attrs = saved_attrs;
-		conceal = saved_conceal;
-		last_column = saved_last_column;
 		break;
 	case 0x3D: // = - DECKPAM - Keypad Application Mode
-		keypad_application_mode = true;
+		mode[DECKPAM] = true;
 		break;
 	case 0x3E: // > - DECKPNM - Keypad Numeric Mode
-		keypad_application_mode = false;
+		mode[DECKPAM] = false;
 		break;
 	case 0x44: // D - IND - Index
 		newline();
@@ -462,7 +433,7 @@ esc_dispatch(unsigned char byte)
 	case 0x4D: // M - RI - Reverse Index
 		if (cursor.y > scroll_top) warpto(cursor.x, cursor.y - 1);
 		else scrolldown();
-		last_column = false;
+		cursor.last_column = false;
 		break;
 	case 0x5A: // Z - DECID - Identify Terminal
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
@@ -610,9 +581,9 @@ erase_display()
 	}
 
 	for (; i < n; i++)
-		screen[i] = attrs;
+		screen[i] = cursor.attrs;
 
-	last_column = false;
+	cursor.last_column = false;
 }
 
 static void
@@ -627,9 +598,9 @@ erase_line()
 	}
 
 	for (; x < max; x++)
-		screen[x + cursor.y * screen_width] = attrs;
+		screen[x + cursor.y * screen_width] = cursor.attrs;
 
-	last_column = false;
+	cursor.last_column = false;
 }
 
 static void
@@ -650,7 +621,7 @@ delete_character()
 	memset(&screen[(cursor.y + 1) * screen_width - parameters[0]], 0,
 		parameters[0] * sizeof(struct cell));
 
-	last_column = false;
+	cursor.last_column = false;
 }
 
 static void
@@ -693,22 +664,16 @@ set_mode(bool value)
 static void
 select_graphic_rendition()
 {
+	struct cell attrs;
 	int i;
+
+	attrs = cursor.attrs;
 
 	for (i = 0; i <= parameter_index; i++)
 		switch (parameters[i]) {
 		case 0:
-			attrs.font = 0;
-			attrs.intensity = INTENSITY_NORMAL;
-			attrs.blink = BLINK_NONE;
-			attrs.underline = UNDERLINE_NONE;
-			attrs.frame = FRAME_NONE;
-			attrs.italic = false;
-			attrs.negative = false;
-			attrs.crossed_out = false;
-			attrs.fraktur = false;
-			attrs.overline = false;
-			conceal = false;
+			memset(&attrs, 0, sizeof(attrs));
+			cursor.conceal = false;
 			break;
 		case 1: attrs.intensity = INTENSITY_BOLD; break;
 		case 2: attrs.intensity = INTENSITY_FAINT; break;
@@ -717,7 +682,7 @@ select_graphic_rendition()
 		case 5: attrs.blink = BLINK_SLOW; break;
 		case 6: attrs.blink = BLINK_FAST; break;
 		case 7: attrs.negative = true; break;
-		case 8: conceal = true; break;
+		case 8: cursor.conceal = true; break;
 		case 9: attrs.crossed_out = true; break;
 		case 10: attrs.font = 0; break;
 		case 11: attrs.font = 1; break;
@@ -736,7 +701,7 @@ select_graphic_rendition()
 		case 24: attrs.underline = UNDERLINE_NONE; break;
 		case 25: attrs.blink = BLINK_NONE; break;
 		case 27: attrs.negative = false; break;
-		case 28: conceal = false; break;
+		case 28: cursor.conceal = false; break;
 		case 29: attrs.crossed_out = false; break;
 		case 38: case 48: // ignore next few arguments
 			if (i++ == parameter_index) return;
@@ -749,6 +714,8 @@ select_graphic_rendition()
 		case 54: attrs.frame = FRAME_NONE; break;
 		case 55: attrs.overline = false; break;
 		}
+
+	cursor.attrs = attrs;
 }
 
 static void

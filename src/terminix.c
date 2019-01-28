@@ -156,7 +156,7 @@ handle_key(const ALLEGRO_KEYBOARD_EVENT *event)
 {
 	char utf8[5];
 
-	if (transmit_disabled)
+	if (mode[TRANSMIT_DISABLED])
 		return;
 
 	if (!mode[DECARM] && event->repeat)

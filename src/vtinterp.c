@@ -578,6 +578,8 @@ erase_display()
 		i = 0;
 		n = screen_width * screen_height;
 		break;
+	default:
+		return;
 	}
 
 	for (; i < n; i++)
@@ -595,6 +597,7 @@ erase_line()
 	case 0: x = cursor.x; max = screen_width; break;
 	case 1: x = 0; max = cursor.x + 1; break;
 	case 2: x = 0; max = screen_width; break;
+	default: return;
 	}
 
 	for (; x < max; x++)

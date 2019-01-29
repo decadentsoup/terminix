@@ -308,7 +308,6 @@ print(long ch)
 	if (cursor.last_column) {
 		cursor.x = 0;
 		newline();
-		cursor.last_column = false;//XXX
 	}
 
 	cell = &screen[cursor.x + cursor.y * screen_width];

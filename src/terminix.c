@@ -108,13 +108,13 @@ init_allegro()
 	if (!al_init_ttf_addon())
 		die("failed to initialize ttf routines");
 
-	if (!(unifont_bmp = al_load_font("unifont-bmp.ttf", 16, 0)))
+	if (!(unifont_bmp = al_load_font("unifont-bmp.ttf", -CHARHEIGHT, 0)))
 		die("failed to load unifont-bmp.ttf");
 
-	if (!(unifont_smp = al_load_font("unifont-smp.ttf", 16, 0)))
+	if (!(unifont_smp = al_load_font("unifont-smp.ttf", -CHARHEIGHT, 0)))
 		die("failed to load unifont-smp.ttf");
 
-	if (!(unifont_csur = al_load_font("unifont-csur.ttf", 16, 0)))
+	if (!(unifont_csur = al_load_font("unifont-csur.ttf", -CHARHEIGHT, 0)))
 		die("failed to load unifont-csur.ttf");
 
 	display_width = screen_width * CHARWIDTH;

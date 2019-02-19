@@ -15,6 +15,25 @@ I know: game libraries for a terminal emulator?
 Well, it's the graphics APIs I work with the most so it's what I'm using for now.
 If I don't abandon this then I'll use something a bit more sensible.
 
+It also requires the http://unifoundry.com/unifont/index.html[GNU Unifont], which is built into a custom bitmap font by `buildfont.rb`.
+
+== Build Instructions
+
+Terminix requires the GNU Unifont to be built into a custom bitmap font.
+In order to do so, download and extract the Unifont's source code and extract it into a directory titled "unifont" in the same directory as this README.
+Then, run `./buildfont.rb` to compile the Unifont.
+I recommend optimizing the resulting file, `unifont.png`, with http://optipng.sourceforge.net/[OptiPNG] -- `optipng -o7 unifont.png` compresses it to about half its size.
+
+NOTE: Previously, Unifont's TrueType fonts were used.
+However, I found Allegro's TrueType routines to be fairly weak for glyph stretching and things like that while trying to implement double-height text.
+Switching to bitmap fonts simplified this and also significantly reduced the amount of disk space used by font data (from several megabytes to less than one).
+It also meant I could compile a version that includes Klingon.
+
+Now, simply run `./build.sh` to compile the program.
+To execute the program, run `./terminix`.
+
+WARNING: Terminix requires `unifont.png` to be in the current working directory and will fail if it's not there.
+
 == Bugs
 
 More than you can count.

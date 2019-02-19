@@ -15,8 +15,7 @@
 
 #include <err.h>
 #include <allegro5/allegro.h>
-#include <allegro5/allegro_font.h>
-#include <allegro5/allegro_ttf.h>
+#include <allegro5/allegro_image.h>
 #include "ptmx.h"
 #include "vtinterp.h"
 
@@ -30,9 +29,9 @@
 static const ALLEGRO_COLOR default_bg = RGB( 55,  55,  55);
 static const ALLEGRO_COLOR default_fg = RGB(255, 255, 255);
 
-static ALLEGRO_FONT *unifont_bmp, *unifont_smp, *unifont_csur;
-static ALLEGRO_DISPLAY *display;
 static int display_width, display_height;
+static ALLEGRO_DISPLAY *display;
+static ALLEGRO_BITMAP *unifont;
 static ALLEGRO_TIMER *timer;
 static ALLEGRO_EVENT_QUEUE *event_queue;
 static int64_t timer_count;
@@ -44,6 +43,7 @@ static void handle_key(const ALLEGRO_KEYBOARD_EVENT *);
 static void buffer_keys(const char *);
 static void render(void);
 static void render_cell(int, int, struct cell *);
+static void render_glyph(ALLEGRO_COLOR, int, int, long);
 static void mkutf8(unsigned char *, long);
 
 int
@@ -81,10 +81,8 @@ handle_exit()
 {
 	if (event_queue) al_destroy_event_queue(event_queue);
 	if (timer) al_destroy_timer(timer);
+	if (unifont) al_destroy_bitmap(unifont);
 	if (display) al_destroy_display(display);
-	if (unifont_csur) al_destroy_font(unifont_csur);
-	if (unifont_smp) al_destroy_font(unifont_smp);
-	if (unifont_bmp) al_destroy_font(unifont_bmp);
 	al_uninstall_system();
 	deinit_ptmx();
 	vtcleanup();
@@ -102,25 +100,16 @@ init_allegro()
 	if (!al_install_keyboard())
 		die("failed to initialize keyboard");
 
-	if (!al_init_font_addon())
-		die("failed to initialize font routines");
-
-	if (!al_init_ttf_addon())
-		die("failed to initialize ttf routines");
-
-	if (!(unifont_bmp = al_load_font("unifont-bmp.ttf", -CHARHEIGHT, 0)))
-		die("failed to load unifont-bmp.ttf");
-
-	if (!(unifont_smp = al_load_font("unifont-smp.ttf", -CHARHEIGHT, 0)))
-		die("failed to load unifont-smp.ttf");
-
-	if (!(unifont_csur = al_load_font("unifont-csur.ttf", -CHARHEIGHT, 0)))
-		die("failed to load unifont-csur.ttf");
+	if (!al_init_image_addon())
+		die("failed to initialize image routines");
 
 	display_width = screen_width * CHARWIDTH;
 	display_height = screen_height * CHARHEIGHT;
 	if (!(display = al_create_display(display_width, display_height)))
 		die("failed to initialize display");
+
+	if (!(unifont = al_load_bitmap("unifont.png")))
+		die("failed to load unifont.png");
 
 	if (!(timer = al_create_timer(0.4)))
 		die("failed to initialize timer");
@@ -215,7 +204,7 @@ render()
 				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
-		al_draw_glyph(unifont_bmp, default_fg, cursor.x * CHARWIDTH,
+		render_glyph(default_fg, cursor.x * CHARWIDTH,
 			cursor.y * CHARHEIGHT, 0x2588);
 
 	al_flip_display();
@@ -226,14 +215,13 @@ render_cell(int px, int py, struct cell *cell)
 {
 	ALLEGRO_COLOR bg, fg;
 	long code_point;
-	ALLEGRO_FONT *font;
 
 	if (mode[DECSCNM] ^ cell->negative)
 		{ bg = default_fg; fg = default_bg; }
 	else
 		{ bg = default_bg; fg = default_fg; }
 
-	al_draw_glyph(unifont_bmp, bg, px, py, 0x2588);
+	render_glyph(bg, px, py, 0x2588);
 
 	if (cell->blink == BLINK_SLOW && timer_count / 2 % 2)
 		return;
@@ -244,32 +232,42 @@ render_cell(int px, int py, struct cell *cell)
 	if (!(code_point = cell->code_point))
 		code_point = 0x20;
 
-	if (code_point < 0xFFFF) font = unifont_bmp;
-	else if (code_point < 0x1FFFF) font = unifont_smp;
-	else font = unifont_csur;
-
 	if (cell->intensity == INTENSITY_FAINT) {
 		fg.r /= 2;
 		fg.g /= 2;
 		fg.b /= 2;
 	}
 
-	al_draw_glyph(font, fg, px, py, code_point);
+	render_glyph(fg, px, py, code_point);
 
 	if (cell->intensity == INTENSITY_BOLD)
-		al_draw_glyph(font, fg, px + 1, py, code_point);
+		render_glyph(fg, px + 1, py, code_point);
 
 	if (cell->underline)
-		al_draw_glyph(unifont_bmp, fg, px + CHARWIDTH, py, 0x0332);
+		render_glyph(fg, px + CHARWIDTH, py, 0x0332);
 
 	if (cell->underline == UNDERLINE_DOUBLE)
-		al_draw_glyph(unifont_bmp, fg, px + CHARWIDTH, py + 2, 0x0332);
+		render_glyph(fg, px + CHARWIDTH, py + 2, 0x0332);
 
 	if (cell->crossed_out)
-		al_draw_glyph(unifont_bmp, fg, px, py, 0x2015);
+		render_glyph(fg, px, py, 0x2015);
 
 	if (cell->overline)
-		al_draw_glyph(unifont_bmp, fg, px + CHARWIDTH, py, 0x0305);
+		render_glyph(fg, px + CHARWIDTH, py, 0x0305);
+}
+
+static void
+render_glyph(ALLEGRO_COLOR color, int px, int py, long code_point)
+{
+	int sx, sy;
+
+	sx = (code_point % 256) * 16;
+	sy = (code_point / 256) * 16;
+
+	if (code_point > 0x1ffff)
+		sy -= 13 * 256 * 16;
+
+	al_draw_tinted_scaled_bitmap(unifont, color, sx, sy, 8, 16, px, py, CHARWIDTH, CHARHEIGHT, 0);
 }
 
 static void

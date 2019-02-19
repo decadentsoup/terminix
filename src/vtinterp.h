@@ -16,6 +16,8 @@
 #ifndef VTINTERP_H
 #define VTINTERP_H
 
+enum { SINGLE_WIDTH, DOUBLE_WIDTH, DOUBLE_HEIGHT_TOP, DOUBLE_HEIGHT_BOTTOM };
+
 enum { INTENSITY_NORMAL, INTENSITY_BOLD, INTENSITY_FAINT };
 enum { BLINK_NONE, BLINK_SLOW, BLINK_FAST };
 enum { UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE };
@@ -36,6 +38,10 @@ enum {
 	DECINLM,
 	DECTCEM,
 	MODE_COUNT
+};
+
+struct line {
+	char dimensions;
 };
 
 struct cell {
@@ -59,6 +65,7 @@ struct cursor {
 };
 
 extern struct cursor cursor;
+extern struct line *lines;
 extern struct cell *screen;
 extern int screen_width, screen_height;
 extern bool mode[MODE_COUNT];

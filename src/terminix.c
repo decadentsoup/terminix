@@ -42,8 +42,8 @@ static void update_size(void);
 static void handle_key(const ALLEGRO_KEYBOARD_EVENT *);
 static void buffer_keys(const char *);
 static void render(void);
-static void render_cell(int, int, struct cell *);
-static void render_glyph(ALLEGRO_COLOR, int, int, long);
+static void render_cell(int, int, char, struct cell *);
+static void render_glyph(ALLEGRO_COLOR, int, int, char, long);
 static void mkutf8(unsigned char *, long);
 
 int
@@ -201,17 +201,18 @@ render()
 	for (y = 0; y < screen_height; y++)
 		for (x = 0; x < screen_width; x++)
 			render_cell(x * CHARWIDTH, y * CHARHEIGHT,
+				lines[y].dimensions,
 				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
 		render_glyph(default_fg, cursor.x * CHARWIDTH,
-			cursor.y * CHARHEIGHT, 0x2588);
+			cursor.y * CHARHEIGHT, 0, 0x2588);
 
 	al_flip_display();
 }
 
 static void
-render_cell(int px, int py, struct cell *cell)
+render_cell(int px, int py, char dim, struct cell *cell)
 {
 	ALLEGRO_COLOR bg, fg;
 	long code_point;
@@ -221,7 +222,7 @@ render_cell(int px, int py, struct cell *cell)
 	else
 		{ bg = default_bg; fg = default_fg; }
 
-	render_glyph(bg, px, py, 0x2588);
+	render_glyph(bg, px, py, dim, 0x2588);
 
 	if (cell->blink == BLINK_SLOW && timer_count / 2 % 2)
 		return;
@@ -238,36 +239,54 @@ render_cell(int px, int py, struct cell *cell)
 		fg.b /= 2;
 	}
 
-	render_glyph(fg, px, py, code_point);
+	render_glyph(fg, px, py, dim, code_point);
 
 	if (cell->intensity == INTENSITY_BOLD)
-		render_glyph(fg, px + 1, py, code_point);
+		render_glyph(fg, px + 1, py, dim, code_point);
 
 	if (cell->underline)
-		render_glyph(fg, px + CHARWIDTH, py, 0x0332);
+		render_glyph(fg, px + CHARWIDTH, py, dim, 0x0332);
 
 	if (cell->underline == UNDERLINE_DOUBLE)
-		render_glyph(fg, px + CHARWIDTH, py + 2, 0x0332);
+		render_glyph(fg, px + CHARWIDTH, py + 2, dim, 0x0332);
 
 	if (cell->crossed_out)
-		render_glyph(fg, px, py, 0x2015);
+		render_glyph(fg, px, py, dim, 0x2015);
 
 	if (cell->overline)
-		render_glyph(fg, px + CHARWIDTH, py, 0x0305);
+		render_glyph(fg, px + CHARWIDTH, py, dim, 0x0305);
 }
 
 static void
-render_glyph(ALLEGRO_COLOR color, int px, int py, long code_point)
+render_glyph(ALLEGRO_COLOR color, int px, int py, char dim, long code_point)
 {
-	int sx, sy;
+	int sx, sy, dw, dh;
 
 	sx = (code_point % 256) * 16;
 	sy = (code_point / 256) * 16;
+	dw = CHARWIDTH;
+	dh = CHARHEIGHT;
 
 	if (code_point > 0x1ffff)
 		sy -= 13 * 256 * 16;
 
-	al_draw_tinted_scaled_bitmap(unifont, color, sx, sy, 8, 16, px, py, CHARWIDTH, CHARHEIGHT, 0);
+	if (dim) {
+		px *= 2;
+		dw *= 2;
+
+		switch (dim) {
+		case DOUBLE_HEIGHT_TOP:
+			dh *= 2;
+			break;
+		case DOUBLE_HEIGHT_BOTTOM:
+			sy += CHARHEIGHT / 2;
+			dh *= 2;
+			break;
+		}
+	}
+
+	al_draw_tinted_scaled_bitmap(unifont, color, sx, sy, 8, 16, px, py, dw,
+		dh, 0);
 }
 
 static void

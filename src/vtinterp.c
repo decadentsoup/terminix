@@ -46,6 +46,7 @@ enum state {
 };
 
 struct cursor cursor;
+struct line *lines;
 struct cell *screen;
 int screen_width, screen_height;
 bool mode[MODE_COUNT];
@@ -87,6 +88,7 @@ static void select_graphic_rendition(void);
 void
 vtcleanup()
 {
+	free(lines);
 	free(screen);
 	free(tabstops);
 }
@@ -97,6 +99,9 @@ vtresize(int columns, int rows)
 	int i;
 
 	vtcleanup();
+
+	if (!(lines = calloc(rows, sizeof(struct line))))
+		pdie("failed to allocate line memory");
 
 	if (!(screen = calloc(columns * rows, sizeof(struct cell))))
 		pdie("failed to allocate screen memory");
@@ -121,6 +126,7 @@ vtreset()
 	int i;
 
 	memset(&cursor, 0, sizeof(cursor));
+	memset(lines, 0, screen_height * sizeof(struct line));
 	memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
 
 	mode[TRANSMIT_DISABLED] = false;
@@ -165,6 +171,11 @@ warpto(int x, int y)
 static void
 scrollup()
 {
+	memmove(&lines[scroll_top], &lines[scroll_top + 1],
+		(scroll_bottom - scroll_top) * sizeof(struct line));
+
+	memset(&lines[scroll_bottom], 0, sizeof(struct line));
+
 	memmove(&screen[scroll_top * screen_width],
 		&screen[(scroll_top + 1) * screen_width],
 		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
@@ -176,6 +187,11 @@ scrollup()
 static void
 scrolldown()
 {
+	memmove(&lines[scroll_top + 1], &lines[scroll_top],
+		(scroll_bottom - scroll_top) * sizeof(struct line));
+
+	memset(&lines[scroll_top], 0, sizeof(struct line));
+
 	memmove(&screen[(scroll_top + 1) * screen_width],
 		&screen[scroll_top * screen_width],
 		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
@@ -452,6 +468,24 @@ esc_dispatch_private(unsigned char byte)
 	int i;
 
 	switch (byte) {
+	case 0x33: // 3 - DECDHL - Double-Height Line (Top)
+		lines[cursor.y].dimensions = DOUBLE_HEIGHT_TOP;
+		memset(&screen[(screen_width / 2) + cursor.y * screen_width], 0,
+			(screen_width / 2) * sizeof(struct cell));
+		break;
+	case 0x34: // 4 - DECDHL - Double-Height Line (Bottom)
+		lines[cursor.y].dimensions = DOUBLE_HEIGHT_BOTTOM;
+		memset(&screen[(screen_width / 2) + cursor.y * screen_width], 0,
+			(screen_width / 2) * sizeof(struct cell));
+		break;
+	case 0x35: // 5 - DECSWL - Single-Width Line
+		lines[cursor.y].dimensions = SINGLE_WIDTH;
+		break;
+	case 0x36: // 6 - DECDWL - Double-Width Line
+		lines[cursor.y].dimensions = DOUBLE_WIDTH;
+		memset(&screen[(screen_width / 2) + cursor.y * screen_width], 0,
+			(screen_width / 2) * sizeof(struct cell));
+		break;
 	case 0x38: // 8 - DECALN - Screen Alignment Display
 		memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
 		for (i = 0; i < screen_width * screen_height; i++)

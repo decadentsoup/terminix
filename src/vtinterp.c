@@ -70,7 +70,8 @@ static void scrolldown(void);
 static void newline(void);
 
 static void interpret(unsigned char);
-static void print(long);
+static void print(unsigned char);
+static void print_unicode(long);
 static void execute(unsigned char);
 static void collect(unsigned char);
 static void param(unsigned char);
@@ -231,7 +232,7 @@ interpret(unsigned char byte)
 	// substitute and cancel controls
 	if (byte == 0x18 || byte == 0x1A) {
 		NEXT(GROUND);
-		print(0xFFFD);
+		print_unicode(0xFFFD);
 		return;
 	}
 
@@ -244,7 +245,8 @@ interpret(unsigned char byte)
 	switch (state) {
 	case STATE_GROUND:
 		COND(byte <= 0x1F, execute(byte));
-		COND(byte <= 0x7E, print(byte));
+		// COND(byte <= 0x7E, print(byte));
+		print(byte);
 		break;
 	case STATE_ESCAPE:
 		intermediate = 0;
@@ -317,7 +319,61 @@ interpret(unsigned char byte)
 }
 
 static void
-print(long ch)
+print(unsigned char byte)
+{
+	static char sequence_size, sequence_index;
+	static long code_point;
+
+	switch (sequence_size) {
+	case 0:
+		sequence_index = 0;
+		code_point = 0;
+
+		if (!(byte & 0x80)) {
+			print_unicode(byte);
+		} else if ((byte & 0xE0) == 0xC0) {
+			sequence_size = 2;
+			code_point = (byte & ~0xE0) << 6;
+		} else if ((byte & 0xF0) == 0xE0) {
+			sequence_size = 3;
+			code_point = (byte & ~0xF0) << 12;
+		} else if ((byte & 0xF8) == 0xF0) {
+			sequence_size = 4;
+			code_point = (byte & ~0xF8) << 18;
+		} else {
+			sequence_size = 0;
+			print_unicode(0xFFFD);
+		}
+
+		break;
+	case 2:
+		print_unicode(code_point | (byte & ~0xC0));
+		sequence_size = 0;
+		break;
+	case 3:
+		switch (sequence_index++) {
+		case 0: code_point |= (byte & ~0xC0) << 6; break;
+		default:
+			print_unicode(code_point | (byte & ~0xC0));
+			sequence_size = 0;
+			break;
+		}
+		break;
+	case 4:
+		switch (sequence_index++) {
+		case 0: code_point |= (byte & ~0xC0) << 12; break;
+		case 1: code_point |= (byte & ~0xC0) << 6; break;
+		default:
+			print_unicode(code_point | (byte & ~0xC0));
+			sequence_size = 0;
+			break;
+		}
+		break;
+	}
+}
+
+static void
+print_unicode(long ch)
 {
 	struct cell *cell;
 

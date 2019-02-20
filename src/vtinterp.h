@@ -16,6 +16,8 @@
 #ifndef VTINTERP_H
 #define VTINTERP_H
 
+// Note: it's important DOUBLE_HEIGHT_* are greater than DOUBLE_WIDTH to
+// simplify the implementation of render_glyph().
 enum { SINGLE_WIDTH, DOUBLE_WIDTH, DOUBLE_HEIGHT_TOP, DOUBLE_HEIGHT_BOTTOM };
 
 enum { INTENSITY_NORMAL, INTENSITY_BOLD, INTENSITY_FAINT };

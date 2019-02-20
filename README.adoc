@@ -19,20 +19,17 @@ It also requires the http://unifoundry.com/unifont/index.html[GNU Unifont], whic
 
 == Build Instructions
 
-Terminix requires the GNU Unifont to be built into a custom bitmap font.
+Terminix embeds the GNU Unifont directly into its executable.
 In order to do so, download and extract the Unifont's source code and extract it into a directory titled "unifont" in the same directory as this README.
-Then, run `./buildfont.rb` to compile the Unifont.
-I recommend optimizing the resulting file, `unifont.png`, with http://optipng.sourceforge.net/[OptiPNG] -- `optipng -o7 unifont.png` compresses it to about half its size.
+Then, run `./buildfont.rb` to compile the Unifont into `src/unifont.c`.
 
-NOTE: Previously, Unifont's TrueType fonts were used.
-However, I found Allegro's TrueType routines to be fairly weak for glyph stretching and things like that while trying to implement double-height text.
-Switching to bitmap fonts simplified this and also significantly reduced the amount of disk space used by font data (from several megabytes to less than one).
-It also meant I could compile a version that includes Klingon.
+NOTE: Originally I used TrueType fonts, but found Allegro's routines to be fairly weak for glyph stretching and things like that while trying to implement double-height text.
+I then switched to bitmap fonts which saved a significant amount of disk space and fixed the issues I was having with glyph stretching.
+Now, I've switched to embedded binary data.
+Since this data is uncompressed, this method sacrificed disk space (the compiled data is about the size of the TrueType fonts) but significantly improved startup time.
 
 Now, simply run `./build.sh` to compile the program.
 To execute the program, run `./terminix`.
-
-WARNING: Terminix requires `unifont.png` to be in the current working directory and will fail if it's not there.
 
 == Bugs
 
@@ -68,3 +65,15 @@ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+WARNING: The following details are based on my best effort interpretation of the license terms for the GNU Unifont.
+I am not a lawyer, so I don't know if this is a correct interpretation of the Unifont's license.
+Please seek professional legal advice in order to make sure you properly comply with Unifont's license terms.
+Eventually I will contact the Free Software Foundation, GNU Project, and/or GNU Unifont developers to make sure I am properly interpreting this.
+
+The resulting binary will include a compiled version of the GNU Unifont.
+_I think_ the resulting binary will be covered by the GNU General Public License version 2 or later, with the Unifont's embedding exception.
+The exact license text for the Unifont can be found in its distribution, and _I think_ it must be distributed with all copies of the resulting binary.
+
+I am not including a copy of the license here in case you use a version of the GNU Unifont with slightly (or extremely) different license terms.
+Please see the Unifont distribution you download to build Terminix for its license terms.

@@ -15,8 +15,8 @@
 
 #include <err.h>
 #include <allegro5/allegro.h>
-#include <allegro5/allegro_image.h>
 #include "ptmx.h"
+#include "unifont.h"
 #include "vtinterp.h"
 
 #define CHARWIDTH 8
@@ -31,7 +31,6 @@ static const ALLEGRO_COLOR default_fg = RGB(255, 255, 255);
 
 static int display_width, display_height;
 static ALLEGRO_DISPLAY *display;
-static ALLEGRO_BITMAP *unifont;
 static ALLEGRO_TIMER *timer;
 static ALLEGRO_EVENT_QUEUE *event_queue;
 static int64_t timer_count;
@@ -81,7 +80,6 @@ handle_exit()
 {
 	if (event_queue) al_destroy_event_queue(event_queue);
 	if (timer) al_destroy_timer(timer);
-	if (unifont) al_destroy_bitmap(unifont);
 	if (display) al_destroy_display(display);
 	al_uninstall_system();
 	deinit_ptmx();
@@ -100,16 +98,10 @@ init_allegro()
 	if (!al_install_keyboard())
 		die("failed to initialize keyboard");
 
-	if (!al_init_image_addon())
-		die("failed to initialize image routines");
-
 	display_width = screen_width * CHARWIDTH;
 	display_height = screen_height * CHARHEIGHT;
 	if (!(display = al_create_display(display_width, display_height)))
 		die("failed to initialize display");
-
-	if (!(unifont = al_load_bitmap("unifont.png")))
-		die("failed to load unifont.png");
 
 	if (!(timer = al_create_timer(0.4)))
 		die("failed to initialize timer");
@@ -196,7 +188,13 @@ buffer_keys(const char *text)
 static void
 render()
 {
+	ALLEGRO_BITMAP *backbuffer;
 	int x, y;
+
+	backbuffer = al_get_backbuffer(display);
+	if (!al_lock_bitmap(backbuffer, ALLEGRO_PIXEL_FORMAT_ANY,
+		ALLEGRO_LOCK_WRITEONLY))
+		die("failed to lock display backbuffer");
 
 	for (y = 0; y < screen_height; y++)
 		for (x = 0; x < screen_width; x++)
@@ -208,6 +206,7 @@ render()
 		render_glyph(default_fg, cursor.x * CHARWIDTH,
 			cursor.y * CHARHEIGHT, 0, 0x2588);
 
+	al_unlock_bitmap(backbuffer);
 	al_flip_display();
 }
 
@@ -257,36 +256,55 @@ render_cell(int px, int py, char dim, struct cell *cell)
 		render_glyph(fg, px + CHARWIDTH, py, dim, 0x0305);
 }
 
+
+// TODO : support 16-pixel-wide glyphs
 static void
 render_glyph(ALLEGRO_COLOR color, int px, int py, char dim, long code_point)
 {
-	int sx, sy, dw, dh;
+	const unsigned char *glyph;
+	int i, imax, j, rx, ry, rxmax;
 
-	sx = (code_point % 256) * 16;
-	sy = (code_point / 256) * 16;
-	dw = CHARWIDTH;
-	dh = CHARHEIGHT;
+	if (!(glyph = find_glyph(code_point)))
+		return;
 
-	if (code_point > 0x1ffff)
-		sy -= 13 * 256 * 16;
+	if (glyph[0] != 1)
+		return;
+
+	i = 1;
+	imax = 17;
 
 	if (dim) {
 		px *= 2;
-		dw *= 2;
 
 		switch (dim) {
-		case DOUBLE_HEIGHT_TOP:
-			dh *= 2;
-			break;
-		case DOUBLE_HEIGHT_BOTTOM:
-			sy += CHARHEIGHT / 2;
-			dh *= 2;
-			break;
+		case DOUBLE_HEIGHT_TOP: imax = 9; break;
+		case DOUBLE_HEIGHT_BOTTOM: i = 9; break;
 		}
 	}
 
-	al_draw_tinted_scaled_bitmap(unifont, color, sx, sy, 8, 16, px, py, dw,
-		dh, 0);
+	rxmax = dim ? 15 : 7;
+
+	for (rx = 0, ry = 0; i < imax; i++) {
+		for (j = 0; j < 8; j++) {
+			if ((glyph[i] << j) & 0x80) {
+				al_put_pixel(px + rx, py + ry, color);
+
+				if (dim) {
+					al_put_pixel(px + rx + 1, py + ry, color);
+
+					if (dim > DOUBLE_WIDTH) {
+						al_put_pixel(px + rx, py + ry + 1, color);
+						al_put_pixel(px + rx + 1, py + ry + 1, color);
+					}
+				}
+			}
+
+			if ((rx += dim ? 2 : 1) > rxmax) {
+				rx = 0;
+				ry += dim > DOUBLE_WIDTH ? 2 : 1;
+			}
+		}
+	}
 }
 
 static void

@@ -1,4 +1,4 @@
-// ptmx.h - routines to manipulate pseudoterminals
+// ptmx.h - pseudoterminal manipulation routines
 // Copyright (C) 2019 Megan Ruggiero. All rights reserved.
 //
 // Permission to use, copy, modify, and distribute this software for any

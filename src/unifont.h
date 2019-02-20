@@ -30,7 +30,7 @@ find_glyph(long code_point)
 		return plane0and1[code_point];
 
 	if (code_point >= 0x0F0000 && code_point <= 0x0FFFFF)
-		return plane0and1[code_point];
+		return plane15[code_point - 0x0F0000];
 
 	return 0;
 }

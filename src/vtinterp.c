@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ptmx.h"
+#include "unifont.h"
 #include "vtinterp.h"
 
 #define MAX_PARAMETERS 16
@@ -376,6 +377,7 @@ static void
 print_unicode(long ch)
 {
 	struct cell *cell;
+	const unsigned char *glyph;
 
 	if (cursor.last_column) {
 		cursor.x = 0;
@@ -389,7 +391,7 @@ print_unicode(long ch)
 		cell->code_point = ch;
 
 	if (cursor.x < screen_width - 1)
-		cursor.x++;
+		cursor.x += (glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1;
 	else if (cursor.x == screen_width - 1 && mode[DECAWM])
 		cursor.last_column = true;
 }

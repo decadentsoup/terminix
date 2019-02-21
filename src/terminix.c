@@ -146,7 +146,9 @@ handle_key(GLFWwindow *window __attribute__((unused)), int key,
 
 	switch (key) {
 	case GLFW_KEY_ESCAPE: buffer_keys("\33"); return;
-	case GLFW_KEY_ENTER: buffer_keys("\r"); return;
+	case GLFW_KEY_ENTER:
+		buffer_keys(mode[LNM] ? "\r\n" : "\r");
+		return;
 	case GLFW_KEY_TAB: buffer_keys("\t"); return;
 	case GLFW_KEY_BACKSPACE: buffer_keys("\b"); return;
 	case GLFW_KEY_INSERT: buffer_keys("\33[2~"); return;

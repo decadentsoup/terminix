@@ -418,6 +418,9 @@ execute(unsigned char byte)
 		if (cursor.x >= screen_width) cursor.x = screen_width - 1;
 		break;
 	case 0x0A: // Line Feed
+		newline();
+		if (mode[LNM]) cursor.x = 0;
+		break;
 	case 0x0B: // Vertical Tab
 	case 0x0C: // Form Feed
 		newline();

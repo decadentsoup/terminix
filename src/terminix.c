@@ -317,16 +317,16 @@ render_cell(GLuint *buffer, int px, int py, char dim, struct cell *cell)
 		render_glyph(buffer, fg, px + 1, py, dim, glyph);
 
 	if (cell->underline)
-		render_glyph(buffer, fg, px + CHARWIDTH, py, dim, find_glyph(0x0332));
+		render_glyph(buffer, fg, px, py, dim, find_glyph(0x0332));
 
 	if (cell->underline == UNDERLINE_DOUBLE)
-		render_glyph(buffer, fg, px + CHARWIDTH, py + 2, dim, find_glyph(0x0332));
+		render_glyph(buffer, fg, px, py + 2, dim, find_glyph(0x0332));
 
 	if (cell->crossed_out)
 		render_glyph(buffer, fg, px, py, dim, find_glyph(0x2015));
 
 	if (cell->overline)
-		render_glyph(buffer, fg, px + CHARWIDTH, py, dim, find_glyph(0x0305));
+		render_glyph(buffer, fg, px, py, dim, find_glyph(0x0305));
 
 	return glyph[0] == 1 ? 1 : 2;
 }

@@ -136,8 +136,7 @@ update_size()
 
 static void
 handle_key(GLFWwindow *window __attribute__((unused)), int key,
-	int scancode __attribute__((unused)), int action,
-	int mods __attribute__((unused)))
+	int scancode __attribute__((unused)), int action, int mods)
 {
 	if (action == GLFW_RELEASE || mode[TRANSMIT_DISABLED])
 		return;
@@ -145,34 +144,67 @@ handle_key(GLFWwindow *window __attribute__((unused)), int key,
 	if (!mode[DECARM] && action == GLFW_REPEAT)
 		return;
 
-	// TODO : verify home/end codes are standard
-	switch (key) {
-	case GLFW_KEY_HOME:	buffer_keys("\33[H"); return;
-	case GLFW_KEY_END:	buffer_keys("\33[F"); return;
-	}
-
-	// TODO : VT52 mode
-	if (mode[DECCKM])
-		switch (key) {
-		case GLFW_KEY_LEFT:	buffer_keys("\33OD"); return;
-		case GLFW_KEY_RIGHT:	buffer_keys("\33OC"); return;
-		case GLFW_KEY_UP:	buffer_keys("\33OA"); return;
-		case GLFW_KEY_DOWN:	buffer_keys("\33OB"); return;
-		}
-	else
-		switch (key) {
-		case GLFW_KEY_LEFT:	buffer_keys("\33[D"); return;
-		case GLFW_KEY_RIGHT:	buffer_keys("\33[C"); return;
-		case GLFW_KEY_UP:	buffer_keys("\33[A"); return;
-		case GLFW_KEY_DOWN:	buffer_keys("\33[B"); return;
-		}
-
 	switch (key) {
 	case GLFW_KEY_ESCAPE: buffer_keys("\33"); return;
-	case GLFW_KEY_ENTER:
-	case GLFW_KEY_KP_ENTER: buffer_keys("\r"); return;
-	case GLFW_KEY_BACKSPACE: buffer_keys("\x7F"); return;
+	case GLFW_KEY_ENTER: buffer_keys("\r"); return;
+	case GLFW_KEY_TAB: buffer_keys("\t"); return;
+	case GLFW_KEY_BACKSPACE: buffer_keys("\b"); return;
+	case GLFW_KEY_INSERT: buffer_keys("\33[2~"); return;
+	case GLFW_KEY_DELETE: buffer_keys("\177"); return;
+	case GLFW_KEY_PAGE_UP: buffer_keys("\33[5~"); return;
+	case GLFW_KEY_PAGE_DOWN: buffer_keys("\33[6~"); return;
+	case GLFW_KEY_HOME: buffer_keys("\33[1~"); return;
+	case GLFW_KEY_END: buffer_keys("\33[4~"); return;
+	case GLFW_KEY_F1: buffer_keys("\33OP"); return;
+	case GLFW_KEY_F2: buffer_keys("\33OQ"); return;
+	case GLFW_KEY_F3: buffer_keys("\33OR"); return;
+	case GLFW_KEY_F4: buffer_keys("\33OS"); return;
+	case GLFW_KEY_KP_ENTER: buffer_keys("\n"); return;
 	}
+
+	if (key >= GLFW_KEY_SPACE && key <= GLFW_KEY_GRAVE_ACCENT) {
+		if (mods & GLFW_MOD_CONTROL) {
+			key &= ~0x60;
+
+			if (mods & GLFW_MOD_SHIFT)
+				key ^= key & 0x40 ? 0x20 : 0x10;
+
+			char buffer[2] = {key, 0};
+			buffer_keys(buffer);
+		}
+
+		return;
+	}
+
+	if (key >= GLFW_KEY_RIGHT && key <= GLFW_KEY_UP) {
+		if (!mode[DECANM])
+			switch (key) {
+			case GLFW_KEY_UP: buffer_keys("\33A"); break;
+			case GLFW_KEY_DOWN: buffer_keys("\33B"); break;
+			case GLFW_KEY_RIGHT: buffer_keys("\33C"); break;
+			case GLFW_KEY_LEFT: buffer_keys("\33D"); break;
+			}
+		else if (mode[DECCKM])
+			switch (key) {
+			case GLFW_KEY_UP: buffer_keys("\33OA"); break;
+			case GLFW_KEY_DOWN: buffer_keys("\33OB"); break;
+			case GLFW_KEY_RIGHT: buffer_keys("\33OC"); break;
+			case GLFW_KEY_LEFT: buffer_keys("\33OD"); break;
+			}
+		else
+			switch (key) {
+			case GLFW_KEY_UP: buffer_keys("\33[A"); break;
+			case GLFW_KEY_DOWN: buffer_keys("\33[B"); break;
+			case GLFW_KEY_RIGHT: buffer_keys("\33[C"); break;
+			case GLFW_KEY_LEFT: buffer_keys("\33[D"); break;
+			}
+
+		return;
+	}
+
+	// TODO : GLFW_KEY_UNKNOWN
+	// TODO : print screen, pause, f5-f25, menu (as SETUP)
+	// TODO : keypad application mode
 }
 
 static void

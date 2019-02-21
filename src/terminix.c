@@ -14,7 +14,12 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <err.h>
-#include <allegro5/allegro.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <GL/glu.h>
+#include <GLFW/glfw3.h>
 #include "ptmx.h"
 #include "unifont.h"
 #include "vtinterp.h"
@@ -25,50 +30,41 @@
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
-#define RGB(r, g, b) { r / 255., g / 255., b / 255., 1 }
-static const ALLEGRO_COLOR default_bg = RGB( 55,  55,  55);
-static const ALLEGRO_COLOR default_fg = RGB(255, 255, 255);
-
 static int display_width, display_height;
-static ALLEGRO_DISPLAY *display;
-static ALLEGRO_TIMER *timer;
-static ALLEGRO_EVENT_QUEUE *event_queue;
-static int64_t timer_count;
+static GLFWwindow *display;
+static GLuint texture;
+static int timer_count;
 
 static void handle_exit(void);
-static void init_allegro(void);
+static void handle_glfw_error(int, const char *);
+static void init_glfw(void);
 static void update_size(void);
-static void handle_key(const ALLEGRO_KEYBOARD_EVENT *);
+static void handle_key(GLFWwindow *, int, int, int, int);
+static void handle_char(GLFWwindow *, unsigned int);
 static void buffer_keys(const char *);
 static void render(void);
-static int render_cell(int, int, char, struct cell *);
-static void render_glyph(ALLEGRO_COLOR, int, int, char, const unsigned char *);
-static void mkutf8(unsigned char *, long);
+static int render_cell(GLuint *, int, int, char, struct cell *);
+static void render_glyph(GLuint *, GLuint, int, int, char, const unsigned char *);
+static void put_pixel(GLuint *, int, int, GLuint);
 
 int
 main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 {
 	unsigned char buffer[1024];
-	ALLEGRO_EVENT event;
+	double lasttick, currtime;
 
 	vtreset();
 	vtresize(80, 24);
 	init_ptmx("/bin/bash");
-	init_allegro();
+	init_glfw();
 
-	for (;;) {
-		while (al_get_next_event(event_queue, &event))
-			switch (event.type) {
-			case ALLEGRO_EVENT_KEY_CHAR:
-				handle_key(&event.keyboard);
-				break;
-			case ALLEGRO_EVENT_TIMER:
-				timer_count = event.timer.count;
-				break;
-			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				return 0;
-			}
+	while (!glfwWindowShouldClose(display)) {
+		while ((currtime = glfwGetTime()) - lasttick - 0.4 > 0) {
+			lasttick = currtime;
+			timer_count++;
+		}
 
+		glfwPollEvents();
 		vtinterp(buffer, read_ptmx(buffer, sizeof(buffer)));
 		update_size();
 		render();
@@ -78,43 +74,49 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 static void
 handle_exit()
 {
-	if (event_queue) al_destroy_event_queue(event_queue);
-	if (timer) al_destroy_timer(timer);
-	if (display) al_destroy_display(display);
-	al_uninstall_system();
+	glfwDestroyWindow(display);
+	glfwTerminate();
 	deinit_ptmx();
 	vtcleanup();
 }
 
 static void
-init_allegro()
+handle_glfw_error(int error __attribute__((unused)), const char *description)
+{
+	warnx("GLFW returned error: %s", description);
+}
+
+static void
+init_glfw()
 {
 	if (atexit(handle_exit))
 		pdie("failed to register atexit callback");
 
-	if (!al_install_system(ALLEGRO_VERSION_INT, NULL))
-		die("failed to initialize allegro");
+	glfwSetErrorCallback(handle_glfw_error);
 
-	if (!al_install_keyboard())
-		die("failed to initialize keyboard");
+	if (!glfwInit())
+		die("failed to initialize GLFW");
+
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+	glfwWindowHint(GLFW_RESIZABLE, false);
 
 	display_width = screen_width * CHARWIDTH;
 	display_height = screen_height * CHARHEIGHT;
-	if (!(display = al_create_display(display_width, display_height)))
-		die("failed to initialize display");
+	if (!(display = glfwCreateWindow(display_width, display_height,
+		"Terminix", NULL, NULL)))
+		die("failed to create main window");
 
-	if (!(timer = al_create_timer(0.4)))
-		die("failed to initialize timer");
+	glfwSetKeyCallback(display, handle_key);
+	glfwSetCharCallback(display, handle_char);
+	glfwMakeContextCurrent(display);
+	glfwSwapInterval(1);
 
-	if (!(event_queue = al_create_event_queue()))
-		die("failed to initialize event queue");
-
-	al_register_event_source(event_queue, al_get_keyboard_event_source());
-	al_register_event_source(event_queue, al_get_timer_event_source(timer));
-	al_register_event_source(event_queue,
-		al_get_display_event_source(display));
-
-	al_start_timer(timer);
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glEnable(GL_TEXTURE_2D);
 }
 
 static void
@@ -128,55 +130,77 @@ update_size()
 	if (display_width != width || display_height != height) {
 		display_width = width;
 		display_height = height;
-		al_resize_display(display, width, height);
+		glfwSetWindowSize(display, width, height);
 	}
 }
 
 static void
-handle_key(const ALLEGRO_KEYBOARD_EVENT *event)
+handle_key(GLFWwindow *window __attribute__((unused)), int key,
+	int scancode __attribute__((unused)), int action,
+	int mods __attribute__((unused)))
 {
-	char utf8[5];
-
-	if (mode[TRANSMIT_DISABLED])
+	if (action == GLFW_RELEASE || mode[TRANSMIT_DISABLED])
 		return;
 
-	if (!mode[DECARM] && event->repeat)
+	if (!mode[DECARM] && action == GLFW_REPEAT)
 		return;
 
 	// TODO : verify home/end codes are standard
-	switch (event->keycode) {
-	case ALLEGRO_KEY_HOME:	buffer_keys("\33[H"); return;
-	case ALLEGRO_KEY_END:	buffer_keys("\33[F"); return;
+	switch (key) {
+	case GLFW_KEY_HOME:	buffer_keys("\33[H"); return;
+	case GLFW_KEY_END:	buffer_keys("\33[F"); return;
 	}
 
 	// TODO : VT52 mode
 	if (mode[DECCKM])
-		switch (event->keycode) {
-		case ALLEGRO_KEY_LEFT:	buffer_keys("\33OD"); return;
-		case ALLEGRO_KEY_RIGHT:	buffer_keys("\33OC"); return;
-		case ALLEGRO_KEY_UP:	buffer_keys("\33OA"); return;
-		case ALLEGRO_KEY_DOWN:	buffer_keys("\33OB"); return;
+		switch (key) {
+		case GLFW_KEY_LEFT:	buffer_keys("\33OD"); return;
+		case GLFW_KEY_RIGHT:	buffer_keys("\33OC"); return;
+		case GLFW_KEY_UP:	buffer_keys("\33OA"); return;
+		case GLFW_KEY_DOWN:	buffer_keys("\33OB"); return;
 		}
 	else
-		switch (event->keycode) {
-		case ALLEGRO_KEY_LEFT:	buffer_keys("\33[D"); return;
-		case ALLEGRO_KEY_RIGHT:	buffer_keys("\33[C"); return;
-		case ALLEGRO_KEY_UP:	buffer_keys("\33[A"); return;
-		case ALLEGRO_KEY_DOWN:	buffer_keys("\33[B"); return;
+		switch (key) {
+		case GLFW_KEY_LEFT:	buffer_keys("\33[D"); return;
+		case GLFW_KEY_RIGHT:	buffer_keys("\33[C"); return;
+		case GLFW_KEY_UP:	buffer_keys("\33[A"); return;
+		case GLFW_KEY_DOWN:	buffer_keys("\33[B"); return;
 		}
 
-	if (event->keycode == ALLEGRO_KEY_BACKSPACE) {
-		buffer_keys("\x7F");
-		return;
+	switch (key) {
+	case GLFW_KEY_ESCAPE: buffer_keys("\33"); return;
+	case GLFW_KEY_ENTER:
+	case GLFW_KEY_KP_ENTER: buffer_keys("\r"); return;
+	case GLFW_KEY_BACKSPACE: buffer_keys("\x7F"); return;
+	}
+}
+
+static void
+handle_char(GLFWwindow *window __attribute__((unused)), unsigned int code_point)
+{
+	char buffer[5];
+
+	memset(buffer, 0, sizeof(buffer));
+
+	if (code_point <= 0x7F) {
+		buffer[0] = code_point;
+	} else if (code_point <= 0x7FF) {
+		buffer[0] = 0xC0 | (code_point >> 6);
+		buffer[1] = 0x80 | (code_point & 0x3F);
+	} else if (code_point <= 0xFFFF) {
+		buffer[0] = 0xE0 | (code_point >> 12);
+		buffer[1] = 0x80 | ((code_point >> 6) & 0x3F);
+		buffer[2] = 0x80 | (code_point & 0x3F);
+	} else if (code_point <= 0x10FFFF) {
+		buffer[0] = 0xF0 | (code_point >> 18);
+		buffer[1] = 0x80 | ((code_point >> 12) & 0x3F);
+		buffer[2] = 0x80 | ((code_point >> 6) & 0x3F);
+		buffer[3] = 0x80 | (code_point & 0x3F);
+	} else {
+		die("impossible code point");
 	}
 
-	if (event->unichar > 0) {
-		mkutf8((unsigned char *)utf8, event->unichar);
-		buffer_keys(utf8);
-		return;
-	}
-
-	warnx("unrecognized keycode %i", event->keycode);
+	buffer_keys(buffer);
 }
 
 static void
@@ -188,33 +212,45 @@ buffer_keys(const char *text)
 static void
 render()
 {
-	ALLEGRO_BITMAP *backbuffer;
-	int x, y;
-
-	backbuffer = al_get_backbuffer(display);
-	if (!al_lock_bitmap(backbuffer, ALLEGRO_PIXEL_FORMAT_ANY,
-		ALLEGRO_LOCK_WRITEONLY))
-		die("failed to lock display backbuffer");
+	GLuint buffer[display_width * display_height];
+	int x, y, width, height;
 
 	for (y = 0; y < screen_height; y++)
 		for (x = 0; x < screen_width;)
-			x += render_cell(x * CHARWIDTH, y * CHARHEIGHT,
+			x += render_cell(buffer, x * CHARWIDTH, y * CHARHEIGHT,
 				lines[y].dimensions,
 				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
-		render_glyph(default_fg, cursor.x * CHARWIDTH,
+		render_glyph(buffer, 0xFFFFFFFF, cursor.x * CHARWIDTH,
 			cursor.y * CHARHEIGHT, 0, find_glyph(0x2588));
 
-	al_unlock_bitmap(backbuffer);
-	al_flip_display();
+	glfwGetFramebufferSize(display, &width, &height);
+	glViewport(0, 0, width, height);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(0, width, height, 0);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, display_width, display_height,
+		0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buffer);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0); glVertex2f(0, 0);
+	glTexCoord2f(1, 0); glVertex2f(width, 0);
+	glTexCoord2f(1, 1); glVertex2f(width, height);
+	glTexCoord2f(0, 1); glVertex2f(0, height);
+	glEnd();
+
+	glfwSwapBuffers(display);
 }
 
 static int
-render_cell(int px, int py, char dim, struct cell *cell)
+render_cell(GLuint *buffer, int px, int py, char dim, struct cell *cell)
 {
+	static const GLuint DEFAULT_BG = 0x373737FF;
+	static const GLuint DEFAULT_FG = 0xFFFFFFFF;
+
 	const unsigned char *glyph;
-	ALLEGRO_COLOR bg, fg;
+	GLuint bg, fg;
 
 	if (cell->code_point)
 		glyph = find_glyph(cell->code_point);
@@ -222,14 +258,14 @@ render_cell(int px, int py, char dim, struct cell *cell)
 		glyph = find_glyph(0x20);
 
 	if (mode[DECSCNM] ^ cell->negative)
-		{ bg = default_fg; fg = default_bg; }
+		{ bg = DEFAULT_FG; fg = DEFAULT_BG; }
 	else
-		{ bg = default_bg; fg = default_fg; }
+		{ bg = DEFAULT_BG; fg = DEFAULT_FG; }
 
-	render_glyph(bg, px, py, dim, find_glyph(0x2588));
+	render_glyph(buffer, bg, px, py, dim, find_glyph(0x2588));
 
 	if (glyph[0] == 2)
-		render_glyph(bg, px + 8, py, dim, find_glyph(0x2588));
+		render_glyph(buffer, bg, px + 8, py, dim, find_glyph(0x2588));
 
 	if (cell->blink == BLINK_SLOW && timer_count / 2 % 2)
 		return glyph[0] == 1 ? 1 : 2;
@@ -237,36 +273,32 @@ render_cell(int px, int py, char dim, struct cell *cell)
 	if (cell->blink == BLINK_FAST && timer_count % 2)
 		return glyph[0] == 1 ? 1 : 2;
 
-	if (cell->intensity == INTENSITY_FAINT) {
-		fg.r /= 2;
-		fg.g /= 2;
-		fg.b /= 2;
-	}
+	if (cell->intensity == INTENSITY_FAINT)
+		fg = (fg >> 24) / 2 << 24 | ((fg >> 16) & 0xFF) / 2 << 16 |
+			((fg >> 8) & 0xFF) / 2 << 8 | 0xFF;
 
-	render_glyph(fg, px, py, dim, glyph);
+	render_glyph(buffer, fg, px, py, dim, glyph);
 
 	if (cell->intensity == INTENSITY_BOLD)
-		render_glyph(fg, px + 1, py, dim, glyph);
+		render_glyph(buffer, fg, px + 1, py, dim, glyph);
 
 	if (cell->underline)
-		render_glyph(fg, px + CHARWIDTH, py, dim, find_glyph(0x0332));
+		render_glyph(buffer, fg, px + CHARWIDTH, py, dim, find_glyph(0x0332));
 
 	if (cell->underline == UNDERLINE_DOUBLE)
-		render_glyph(fg, px + CHARWIDTH, py + 2,dim,find_glyph(0x0332));
+		render_glyph(buffer, fg, px + CHARWIDTH, py + 2, dim, find_glyph(0x0332));
 
 	if (cell->crossed_out)
-		render_glyph(fg, px, py, dim, find_glyph(0x2015));
+		render_glyph(buffer, fg, px, py, dim, find_glyph(0x2015));
 
 	if (cell->overline)
-		render_glyph(fg, px + CHARWIDTH, py, dim, find_glyph(0x0305));
+		render_glyph(buffer, fg, px + CHARWIDTH, py, dim, find_glyph(0x0305));
 
 	return glyph[0] == 1 ? 1 : 2;
 }
 
-
 static void
-render_glyph(ALLEGRO_COLOR color, int px, int py, char dim,
-	const unsigned char *glyph)
+render_glyph(GLuint *buffer, GLuint color, int px, int py, char dim, const unsigned char *glyph)
 {
 	int i, imax, j, rx, ry, rxmax;
 
@@ -290,14 +322,14 @@ render_glyph(ALLEGRO_COLOR color, int px, int py, char dim,
 	for (rx = 0, ry = 0; i < imax; i++) {
 		for (j = 0; j < 8; j++) {
 			if ((glyph[i] << j) & 0x80) {
-				al_put_pixel(px + rx, py + ry, color);
+				put_pixel(buffer, px + rx, py + ry, color);
 
 				if (dim) {
-					al_put_pixel(px + rx + 1, py + ry, color);
+					put_pixel(buffer, px + rx + 1, py + ry, color);
 
 					if (dim > DOUBLE_WIDTH) {
-						al_put_pixel(px + rx, py + ry + 1, color);
-						al_put_pixel(px + rx + 1, py + ry + 1, color);
+						put_pixel(buffer, px + rx, py + ry + 1, color);
+						put_pixel(buffer, px + rx + 1, py + ry + 1, color);
 					}
 				}
 			}
@@ -311,25 +343,9 @@ render_glyph(ALLEGRO_COLOR color, int px, int py, char dim,
 }
 
 static void
-mkutf8(unsigned char *buffer, long code_point)
+put_pixel(GLuint *buffer, int x, int y, GLuint color)
 {
-	memset(buffer, 0, 5);
-
-	if (code_point <= 0x7F) {
-		buffer[0] = code_point;
-	} else if (code_point <= 0x7FF) {
-		buffer[0] = 0xC0 | (code_point >> 6);
-		buffer[1] = 0x80 | (code_point & 0x3F);
-	} else if (code_point <= 0xFFFF) {
-		buffer[0] = 0xE0 | (code_point >> 12);
-		buffer[1] = 0x80 | ((code_point >> 6) & 0x3F);
-		buffer[2] = 0x80 | (code_point & 0x3F);
-	} else if (code_point <= 0x10FFFF) {
-		buffer[0] = 0xF0 | (code_point >> 18);
-		buffer[1] = 0x80 | ((code_point >> 12) & 0x3F);
-		buffer[2] = 0x80 | ((code_point >> 6) & 0x3F);
-		buffer[3] = 0x80 | (code_point & 0x3F);
-	} else {
-		die("impossible code point");
-	}
+	if (x > display_width) return;
+	if (y > display_height) return;
+	buffer[x + y * display_width] = color;
 }

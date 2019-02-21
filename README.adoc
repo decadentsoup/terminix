@@ -10,12 +10,8 @@ Note, though, that UTF-8 parsing is not yet implemented so programs can't print 
 
 == Dependencies
 
-Terminix requires the https://liballeg.org/[Allegro 5.x] series of game programming libraries.
-I know: game libraries for a terminal emulator?
-Well, it's the graphics APIs I work with the most so it's what I'm using for now.
-If I don't abandon this then I'll use something a bit more sensible.
-
-It also requires the http://unifoundry.com/unifont/index.html[GNU Unifont], which is built into a custom bitmap font by `buildfont.rb`.
+* https://www.glfw.org/[GLFW]
+* http://unifoundry.com/unifont/index.html[GNU Unifont]
 
 == Build Instructions
 
@@ -23,12 +19,7 @@ Terminix embeds the GNU Unifont directly into its executable.
 In order to do so, download and extract the Unifont's source code and extract it into a directory titled "unifont" in the same directory as this README.
 Then, run `./buildfont.rb` to compile the Unifont into `src/unifont.c`.
 
-NOTE: Originally I used TrueType fonts, but found Allegro's routines to be fairly weak for glyph stretching and things like that while trying to implement double-height text.
-I then switched to bitmap fonts which saved a significant amount of disk space and fixed the issues I was having with glyph stretching.
-Now, I've switched to embedded binary data.
-Since this data is uncompressed, this method sacrificed disk space (the compiled data is about the size of the TrueType fonts) but significantly improved startup time.
-
-Now, simply run `./build.sh` to compile the program.
+Run `./build.sh` to compile the program.
 To execute the program, run `./terminix`.
 
 == Bugs

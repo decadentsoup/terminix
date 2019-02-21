@@ -1,3 +1,3 @@
 #!/bin/sh -e
 cd "$(dirname "$0")"
-gcc -Werror -Wall -Wextra src/*.c -o terminix -lallegro
+gcc -Werror -Wall -Wextra src/*.c -o terminix -lGL -lGLU -lglfw

@@ -728,7 +728,7 @@ set_mode(bool value)
 			if (parameters[i] == 20)
 				mode[LNM] = value;
 			else
-				warnx("set mode %i=%i", parameters[0], value);
+				warnx("set mode %i=%i", parameters[i], value);
 		} else if (intermediate == 0x3F) {
 			switch (parameters[i]) {
 			case 1: mode[DECCKM] = value; break;
@@ -749,7 +749,7 @@ set_mode(bool value)
 			// case 9: mode[DECINLM] = value; break;
 			case 25: mode[DECTCEM] = value; break;
 			default:
-				warnx("set mode ?%i=%i", parameters[0], value);
+				warnx("set mode ?%i=%i", parameters[i], value);
 				break;
 			}
 		}

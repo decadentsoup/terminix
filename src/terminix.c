@@ -147,6 +147,7 @@ handle_key(GLFWwindow *window __attribute__((unused)), int key,
 	switch (key) {
 	case GLFW_KEY_ESCAPE: buffer_keys("\33"); return;
 	case GLFW_KEY_ENTER:
+	case GLFW_KEY_KP_ENTER:
 		buffer_keys(mode[LNM] ? "\r\n" : "\r");
 		return;
 	case GLFW_KEY_TAB: buffer_keys("\t"); return;
@@ -161,7 +162,6 @@ handle_key(GLFWwindow *window __attribute__((unused)), int key,
 	case GLFW_KEY_F2: buffer_keys("\33OQ"); return;
 	case GLFW_KEY_F3: buffer_keys("\33OR"); return;
 	case GLFW_KEY_F4: buffer_keys("\33OS"); return;
-	case GLFW_KEY_KP_ENTER: buffer_keys("\n"); return;
 	}
 
 	if (key >= GLFW_KEY_SPACE && key <= GLFW_KEY_GRAVE_ACCENT) {

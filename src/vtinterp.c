@@ -392,7 +392,7 @@ print_unicode(long ch)
 
 	if (cursor.x < screen_width - 1)
 		cursor.x += (glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1;
-	else if (cursor.x == screen_width - 1 && mode[DECAWM])
+	else if (mode[DECAWM])
 		cursor.last_column = true;
 }
 

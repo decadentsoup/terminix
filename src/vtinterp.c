@@ -80,6 +80,7 @@ static void esc_dispatch(unsigned char);
 static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
 static void csi_dispatch_private(unsigned char);
+static void set_dimensions(int);
 static void erase_display(void);
 static void erase_line(void);
 static void delete_character(void);
@@ -390,10 +391,12 @@ print_unicode(long ch)
 	if (!cursor.conceal)
 		cell->code_point = ch;
 
-	if (cursor.x < screen_width - 1)
+	if (cursor.x < screen_width - 1) {
 		cursor.x += (glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1;
-	else if (mode[DECAWM])
+		cursor.x += lines[cursor.y].dimensions ? 1 : 0;
+	} else if (mode[DECAWM]) {
 		cursor.last_column = true;
+	}
 }
 
 static void
@@ -530,22 +533,16 @@ esc_dispatch_private(unsigned char byte)
 
 	switch (byte) {
 	case 0x33: // 3 - DECDHL - Double-Height Line (Top)
-		lines[cursor.y].dimensions = DOUBLE_HEIGHT_TOP;
-		memset(&screen[(screen_width / 2) + cursor.y * screen_width], 0,
-			(screen_width / 2) * sizeof(struct cell));
+		set_dimensions(DOUBLE_HEIGHT_TOP);
 		break;
 	case 0x34: // 4 - DECDHL - Double-Height Line (Bottom)
-		lines[cursor.y].dimensions = DOUBLE_HEIGHT_BOTTOM;
-		memset(&screen[(screen_width / 2) + cursor.y * screen_width], 0,
-			(screen_width / 2) * sizeof(struct cell));
+		set_dimensions(DOUBLE_HEIGHT_BOTTOM);
 		break;
 	case 0x35: // 5 - DECSWL - Single-Width Line
-		lines[cursor.y].dimensions = SINGLE_WIDTH;
+		set_dimensions(SINGLE_WIDTH);
 		break;
 	case 0x36: // 6 - DECDWL - Double-Width Line
-		lines[cursor.y].dimensions = DOUBLE_WIDTH;
-		memset(&screen[(screen_width / 2) + cursor.y * screen_width], 0,
-			(screen_width / 2) * sizeof(struct cell));
+		set_dimensions(DOUBLE_WIDTH);
 		break;
 	case 0x38: // 8 - DECALN - Screen Alignment Display
 		memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
@@ -652,6 +649,25 @@ csi_dispatch_private(unsigned char byte)
 		set_mode(false);
 		break;
 	}
+}
+
+static void
+set_dimensions(int dimensions)
+{
+	int x;
+
+	// TODO : check for uneven screen widths
+	if (!lines[cursor.y].dimensions && dimensions) {
+		for (x = screen_width - 2; x >= 0; x -= 2) {
+			screen[x + cursor.y * screen_width] = screen[x / 2 + cursor.y * screen_width];
+			screen[x + cursor.y * screen_width + 1] = cursor.attrs;
+		}
+	} else if (lines[cursor.y].dimensions && !dimensions) {
+		for (x = 0; x < screen_width; x++)
+			screen[x + cursor.y * screen_width] = screen[x * 2 + cursor.y * screen_width];
+	}
+
+	lines[cursor.y].dimensions = dimensions;
 }
 
 static void

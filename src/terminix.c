@@ -328,7 +328,7 @@ render_cell(GLuint *buffer, int px, int py, char dim, struct cell *cell)
 	if (cell->overline)
 		render_glyph(buffer, fg, px, py, dim, find_glyph(0x0305));
 
-	return glyph[0] == 1 ? 1 : 2;
+	return (glyph[0] == 1 ? 1 : 2) * (dim ? 2 : 1);
 }
 
 static void
@@ -343,8 +343,6 @@ render_glyph(GLuint *buffer, GLuint color, int px, int py, char dim, const unsig
 	imax = glyph[0] == 1 ? 17 : 33;
 
 	if (dim) {
-		px *= 2;
-
 		switch (dim) {
 		case DOUBLE_HEIGHT_TOP: imax = imax / 2 + 1; break;
 		case DOUBLE_HEIGHT_BOTTOM: i = imax / 2 + 1; break;

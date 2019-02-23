@@ -24,7 +24,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "ptmx.h"
-#include "vtinterp.h"
 
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))

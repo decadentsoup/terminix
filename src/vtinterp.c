@@ -13,7 +13,6 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// TODO : cleanup
 #include <err.h>
 #include <stdbool.h>
 #include <stdint.h>

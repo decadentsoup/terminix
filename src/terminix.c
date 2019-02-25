@@ -258,7 +258,8 @@ render()
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
 		render_glyph(buffer, 0xFFFFFFFF, cursor.x * CHARWIDTH,
-			cursor.y * CHARHEIGHT, 0, find_glyph(0x2588));
+			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
+			find_glyph(0x2588));
 
 	glfwGetFramebufferSize(display, &width, &height);
 	glViewport(0, 0, width, height);

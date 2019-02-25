@@ -13,19 +13,17 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// TODO : cleanup
 #include <err.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 #include "ptmx.h"
-#include "unifont.h"
+#include "screen.h"
 #include "vtinterp.h"
 
 #define MAX_PARAMETERS 16
 #define PARAMETER_MAX 16383
-
-#define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
 enum state {
 	STATE_GROUND,
@@ -46,16 +44,6 @@ enum state {
 	STATE_APC_STRING
 };
 
-struct cursor cursor;
-struct line *lines;
-struct cell *screen;
-int screen_width, screen_height;
-bool mode[MODE_COUNT];
-
-static bool *tabstops;
-static int scroll_top, scroll_bottom;
-static struct cursor saved_cursor;
-
 static enum state state;
 static unsigned char intermediate;
 static unsigned short parameters[MAX_PARAMETERS];
@@ -65,14 +53,8 @@ static unsigned char parameter_index;
 static const unsigned char DEVICE_ATTRS[] =
 	{ 0x1B, 0x5B, 0x3F, 0x31, 0x3B, 0x37, 0x63 };
 
-static void warpto(int, int);
-static void scrollup(void);
-static void scrolldown(void);
-static void newline(void);
-
 static void interpret(unsigned char);
 static void print(unsigned char);
-static void print_unicode(long);
 static void execute(unsigned char);
 static void collect(unsigned char);
 static void param(unsigned char);
@@ -87,132 +69,6 @@ static void delete_character(void);
 static void device_status_report(void);
 static void set_mode(bool);
 static void select_graphic_rendition(void);
-
-void
-vtcleanup()
-{
-	free(lines);
-	free(screen);
-	free(tabstops);
-}
-
-void
-vtresize(int columns, int rows)
-{
-	int i;
-
-	vtcleanup();
-
-	if (!(lines = calloc(rows, sizeof(struct line))))
-		pdie("failed to allocate line memory");
-
-	if (!(screen = calloc(columns * rows, sizeof(struct cell))))
-		pdie("failed to allocate screen memory");
-
-	if (!(tabstops = calloc(columns, sizeof(bool))))
-		pdie("failed to allocate tabstop memory");
-
-	for (i = 8; i < columns; i += 8)
-		tabstops[i] = true;
-
-	screen_width = columns;
-	screen_height = rows;
-	scroll_top = 0;
-	scroll_bottom = screen_height - 1;
-	cursor.x = 0;
-	cursor.y = 0;
-}
-
-void
-vtreset()
-{
-	int i;
-
-	memset(&cursor, 0, sizeof(cursor));
-	memset(lines, 0, screen_height * sizeof(struct line));
-	memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
-
-	mode[TRANSMIT_DISABLED] = false;
-	mode[DECKPAM] = false;
-	mode[LNM] = false;
-	mode[DECCKM] = false;
-	mode[DECANM] = true;
-	mode[DECCOLM] = false;
-	mode[DECSCLM] = true;
-	mode[DECSCNM] = false;
-	mode[DECOM] = false;
-	mode[DECAWM] = false;
-	mode[DECARM] = true;
-	mode[DECINLM] = true;
-	mode[DECTCEM] = true;
-
-	memset(tabstops, 0, screen_width * sizeof(bool));
-	for (i = 8; i < screen_width; i += 8)
-		tabstops[i] = true;
-
-	scroll_top = 0;
-	scroll_bottom = screen_height - 1;
-	saved_cursor = cursor;
-}
-
-static void
-warpto(int x, int y)
-{
-	int miny, maxy;
-
-	miny = mode[DECOM] ? scroll_top : 0;
-	maxy = mode[DECOM] ? scroll_bottom : screen_height - 1;
-
-	if (x < 0) x = 0; else if (x >= screen_width) x = screen_width - 1;
-	if (y < miny) y = miny; else if (y > maxy) y = maxy;
-
-	cursor.x = x;
-	cursor.y = y;
-	cursor.last_column = false;
-}
-
-static void
-scrollup()
-{
-	memmove(&lines[scroll_top], &lines[scroll_top + 1],
-		(scroll_bottom - scroll_top) * sizeof(struct line));
-
-	memset(&lines[scroll_bottom], 0, sizeof(struct line));
-
-	memmove(&screen[scroll_top * screen_width],
-		&screen[(scroll_top + 1) * screen_width],
-		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
-
-	memset(&screen[screen_width * scroll_bottom], 0,
-		screen_width * sizeof(struct cell));
-}
-
-static void
-scrolldown()
-{
-	memmove(&lines[scroll_top + 1], &lines[scroll_top],
-		(scroll_bottom - scroll_top) * sizeof(struct line));
-
-	memset(&lines[scroll_top], 0, sizeof(struct line));
-
-	memmove(&screen[(scroll_top + 1) * screen_width],
-		&screen[scroll_top * screen_width],
-		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
-
-	memset(&screen[screen_width * scroll_top], 0,
-		screen_width * sizeof(struct cell));
-}
-
-static void
-newline()
-{
-	cursor.last_column = false;
-
-	if (cursor.y < scroll_bottom)
-		cursor.y++;
-	else
-		scrollup();
-}
 
 void
 vtinterp(const unsigned char *buffer, size_t bufsize)
@@ -234,7 +90,7 @@ interpret(unsigned char byte)
 	// substitute and cancel controls
 	if (byte == 0x18 || byte == 0x1A) {
 		NEXT(GROUND);
-		print_unicode(0xFFFD);
+		putch(0xFFFD);
 		return;
 	}
 
@@ -332,7 +188,7 @@ print(unsigned char byte)
 		code_point = 0;
 
 		if (!(byte & 0x80)) {
-			print_unicode(byte);
+			putch(byte);
 		} else if ((byte & 0xE0) == 0xC0) {
 			sequence_size = 2;
 			code_point = (byte & ~0xE0) << 6;
@@ -344,19 +200,19 @@ print(unsigned char byte)
 			code_point = (byte & ~0xF8) << 18;
 		} else {
 			sequence_size = 0;
-			print_unicode(0xFFFD);
+			putch(0xFFFD);
 		}
 
 		break;
 	case 2:
-		print_unicode(code_point | (byte & ~0xC0));
+		putch(code_point | (byte & ~0xC0));
 		sequence_size = 0;
 		break;
 	case 3:
 		switch (sequence_index++) {
 		case 0: code_point |= (byte & ~0xC0) << 6; break;
 		default:
-			print_unicode(code_point | (byte & ~0xC0));
+			putch(code_point | (byte & ~0xC0));
 			sequence_size = 0;
 			break;
 		}
@@ -366,36 +222,11 @@ print(unsigned char byte)
 		case 0: code_point |= (byte & ~0xC0) << 12; break;
 		case 1: code_point |= (byte & ~0xC0) << 6; break;
 		default:
-			print_unicode(code_point | (byte & ~0xC0));
+			putch(code_point | (byte & ~0xC0));
 			sequence_size = 0;
 			break;
 		}
 		break;
-	}
-}
-
-static void
-print_unicode(long ch)
-{
-	struct cell *cell;
-	const unsigned char *glyph;
-
-	if (cursor.last_column) {
-		cursor.x = 0;
-		newline();
-	}
-
-	cell = &screen[cursor.x + cursor.y * screen_width];
-	*cell = cursor.attrs;
-
-	if (!cursor.conceal)
-		cell->code_point = ch;
-
-	if (cursor.x < screen_width - 1) {
-		cursor.x += (glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1;
-		cursor.x += lines[cursor.y].dimensions ? 1 : 0;
-	} else if (mode[DECAWM]) {
-		cursor.last_column = true;
 	}
 }
 
@@ -518,7 +349,7 @@ esc_dispatch(unsigned char byte)
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
 		break;
 	case 0x63: // c - RIS - Reset To Initial Set
-		vtreset();
+		reset();
 		break;
 	default:
 		warnx("esc_dispatch(final=%x/%c)", byte, byte);
@@ -754,9 +585,9 @@ set_mode(bool value)
 			// case 2: mode[DECANM] = value; break;
 			case 3:
 				if ((mode[DECCOLM] = value))
-					vtresize(132, screen_height);
+					resize(132, screen_height);
 				else
-					vtresize(80, screen_height);
+					resize(80, screen_height);
 				break;
 			// case 4: mode[DECSCLM] = value; break;
 			case 5: mode[DECSCNM] = value; break;

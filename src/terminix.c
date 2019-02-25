@@ -21,6 +21,7 @@
 #include <GL/glu.h>
 #include <GLFW/glfw3.h>
 #include "ptmx.h"
+#include "screen.h"
 #include "unifont.h"
 #include "vtinterp.h"
 
@@ -53,8 +54,8 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 	unsigned char buffer[1024];
 	double lasttick, currtime;
 
-	vtreset();
-	vtresize(80, 24);
+	resize(80, 24);
+	reset();
 	init_ptmx("/bin/bash");
 	init_glfw();
 
@@ -77,7 +78,7 @@ handle_exit()
 	glfwDestroyWindow(display);
 	glfwTerminate();
 	deinit_ptmx();
-	vtcleanup();
+	deinit_screen();
 }
 
 static void

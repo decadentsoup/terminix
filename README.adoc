@@ -57,14 +57,11 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-WARNING: The following details are based on my best effort interpretation of the license terms for the GNU Unifont.
-I am not a lawyer, so I don't know if this is a correct interpretation of the Unifont's license.
-Please seek professional legal advice in order to make sure you properly comply with Unifont's license terms.
-Eventually I will contact the Free Software Foundation, GNU Project, and/or GNU Unifont developers to make sure I am properly interpreting this.
+The binary that results from the build procedures described in this README will embed the GNU Unifont into the final executable.
+The GNU Unifont is licensed under the GNU General Public License, whose terms will cover the final executable as a derivative product.
+Please see the Unifont's license for more information.
 
-The resulting binary will include a compiled version of the GNU Unifont.
-_I think_ the resulting binary will be covered by the GNU General Public License version 2 or later, with the Unifont's embedding exception.
-The exact license text for the Unifont can be found in its distribution, and _I think_ it must be distributed with all copies of the resulting binary.
-
-I am not including a copy of the license here in case you use a version of the GNU Unifont with slightly (or extremely) different license terms.
-Please see the Unifont distribution you download to build Terminix for its license terms.
+NOTE: The GNU Unifont includes a "font embedding exception" that states that documents embedding the Unifont are not covered under the GNU GPL.
+However, Terminix is software, not a document, and as such I do not believe it is covered under the exception.
+I am not a lawyer.
+Please contact the GNU Unifont developers or the GNU Project for clarification if necessary.

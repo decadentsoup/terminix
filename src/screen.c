@@ -154,22 +154,28 @@ putch(long ch)
 {
 	struct cell *cell;
 	const unsigned char *glyph;
+	int increment;
 
 	if (cursor.last_column) {
 		cursor.x = 0;
 		newline();
 	}
 
-	cell = &screen[cursor.x + cursor.y * screen_width];
+	// TODO : check behavior on unevenly wide screens
+	cell = &screen[(cursor.x / (lines[cursor.y].dimensions ? 2 : 1)) +
+		cursor.y * screen_width];
+
 	*cell = cursor.attrs;
 
 	if (!cursor.conceal)
 		cell->code_point = ch;
 
-	if (cursor.x < screen_width - 1) {
-		cursor.x += (glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1;
-		cursor.x += lines[cursor.y].dimensions ? 1 : 0;
-	} else if (mode[DECAWM]) {
-		cursor.last_column = true;
+	increment = ((glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1) +
+		(lines[cursor.y].dimensions ? 1 : 0);
+
+	if (cursor.x + increment >= screen_width) {
+		if (mode[DECAWM]) cursor.last_column = true;
+	} else {
+		cursor.x += increment;
 	}
 }

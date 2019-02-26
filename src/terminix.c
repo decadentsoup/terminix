@@ -252,8 +252,9 @@ render()
 
 	for (y = 0; y < screen_height; y++)
 		for (x = 0; x < screen_width;)
-			x += render_cell(buffer, x * CHARWIDTH, y * CHARHEIGHT,
-				lines[y].dimensions,
+			x += render_cell(buffer,
+				x * CHARWIDTH * (lines[y].dimensions ? 2 : 1),
+				y * CHARHEIGHT, lines[y].dimensions,
 				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
@@ -330,7 +331,7 @@ render_cell(GLuint *buffer, int px, int py, char dim, struct cell *cell)
 	if (cell->overline)
 		render_glyph(buffer, fg, px, py, dim, find_glyph(0x0305));
 
-	return (glyph[0] == 1 ? 1 : 2) * (dim ? 2 : 1);
+	return glyph[0] == 1 ? 1 : 2;
 }
 
 static void

@@ -61,7 +61,6 @@ static void esc_dispatch(unsigned char);
 static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
 static void csi_dispatch_private(unsigned char);
-static void set_dimensions(int);
 static void erase_display(void);
 static void erase_line(void);
 static void delete_character(void);
@@ -363,16 +362,16 @@ esc_dispatch_private(unsigned char byte)
 
 	switch (byte) {
 	case 0x33: // 3 - DECDHL - Double-Height Line (Top)
-		set_dimensions(DOUBLE_HEIGHT_TOP);
+		lines[cursor.y].dimensions = DOUBLE_HEIGHT_TOP;
 		break;
 	case 0x34: // 4 - DECDHL - Double-Height Line (Bottom)
-		set_dimensions(DOUBLE_HEIGHT_BOTTOM);
+		lines[cursor.y].dimensions = DOUBLE_HEIGHT_BOTTOM;
 		break;
 	case 0x35: // 5 - DECSWL - Single-Width Line
-		set_dimensions(SINGLE_WIDTH);
+		lines[cursor.y].dimensions = SINGLE_WIDTH;
 		break;
 	case 0x36: // 6 - DECDWL - Double-Width Line
-		set_dimensions(DOUBLE_WIDTH);
+		lines[cursor.y].dimensions = DOUBLE_WIDTH;
 		break;
 	case 0x38: // 8 - DECALN - Screen Alignment Display
 		memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
@@ -479,25 +478,6 @@ csi_dispatch_private(unsigned char byte)
 		set_mode(false);
 		break;
 	}
-}
-
-static void
-set_dimensions(int dimensions)
-{
-	int x;
-
-	// TODO : check for uneven screen widths
-	if (!lines[cursor.y].dimensions && dimensions) {
-		for (x = screen_width - 2; x >= 0; x -= 2) {
-			screen[x + cursor.y * screen_width] = screen[x / 2 + cursor.y * screen_width];
-			screen[x + cursor.y * screen_width + 1] = cursor.attrs;
-		}
-	} else if (lines[cursor.y].dimensions && !dimensions) {
-		for (x = 0; x < screen_width; x++)
-			screen[x + cursor.y * screen_width] = screen[x * 2 + cursor.y * screen_width];
-	}
-
-	lines[cursor.y].dimensions = dimensions;
 }
 
 static void

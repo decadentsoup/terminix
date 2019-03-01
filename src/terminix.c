@@ -72,9 +72,9 @@ static void handle_char(GLFWwindow *, unsigned int);
 static void buffer_keys(const char *);
 static void render(void);
 static int render_cell(unsigned char *, int, int, char, struct cell *);
-static void render_glyph(unsigned char *, GLuint, int, int, char,
+static void render_glyph(unsigned char *, struct color, int, int, char,
 	const unsigned char *);
-static void put_pixel(unsigned char *, int, int, GLuint);
+static void put_pixel(unsigned char *, int, int, struct color);
 
 int
 main(int argc UNUSED, char **argv UNUSED)
@@ -364,6 +364,8 @@ buffer_keys(const char *text)
 static void
 render()
 {
+	static const struct color white = {0xFF, 0xFF, 0xFF};
+
 	unsigned char buffer[display_width * display_height * 3];
 	int x, y;
 
@@ -375,7 +377,7 @@ render()
 				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
-		render_glyph(buffer, 0xFFFFFFFF,
+		render_glyph(buffer, white,
 			cursor.x * CHARWIDTH * (lines[cursor.y].dimensions?2:1),
 			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
 			find_glyph(0x2588));
@@ -389,11 +391,8 @@ render()
 static int
 render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 {
-	static const GLuint DEFAULT_BG = 0x373737FF;
-	static const GLuint DEFAULT_FG = 0xFFFFFFFF;
-
 	const unsigned char *glyph;
-	GLuint bg, fg;
+	struct color bg, fg;
 
 	if (cell->code_point)
 		glyph = find_glyph(cell->code_point);
@@ -401,9 +400,9 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 		glyph = find_glyph(0x20);
 
 	if (mode[DECSCNM] ^ cell->negative)
-		{ bg = DEFAULT_FG; fg = DEFAULT_BG; }
+		{ bg = palette[cell->foreground]; fg = palette[cell->background]; }
 	else
-		{ bg = DEFAULT_BG; fg = DEFAULT_FG; }
+		{ bg = palette[cell->background]; fg = palette[cell->foreground]; }
 
 	render_glyph(buffer, bg, px, py, dim, find_glyph(0x2588));
 
@@ -416,9 +415,11 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 	if (cell->blink == BLINK_FAST && timer_count % 2)
 		return glyph[0] == 1 ? 1 : 2;
 
-	if (cell->intensity == INTENSITY_FAINT)
-		fg = (fg >> 24) / 2 << 24 | ((fg >> 16) & 0xFF) / 2 << 16 |
-			((fg >> 8) & 0xFF) / 2 << 8 | 0xFF;
+	if (cell->intensity == INTENSITY_FAINT) {
+		fg.r /= 2;
+		fg.g /= 2;
+		fg.b /= 2;
+	}
 
 	render_glyph(buffer, fg, px, py, dim, glyph);
 
@@ -441,8 +442,8 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 }
 
 static void
-render_glyph(unsigned char *buffer, GLuint color, int px, int py, char dim,
-	const unsigned char *glyph)
+render_glyph(unsigned char *buffer, struct color color, int px, int py,
+	char dim, const unsigned char *glyph)
 {
 	int i, imax, j, rx, ry, rxmax;
 
@@ -485,13 +486,13 @@ render_glyph(unsigned char *buffer, GLuint color, int px, int py, char dim,
 }
 
 static void
-put_pixel(unsigned char *buffer, int x, int y, GLuint color)
+put_pixel(unsigned char *buffer, int x, int y, struct color color)
 {
 	size_t i;
 	if (x > display_width) return;
 	if (y > display_height) return;
 	i = (x + y * display_width) * 3;
-	buffer[i++] = color >> 24;
-	buffer[i++] = color >> 16;
-	buffer[i  ] = color >>  8;
+	buffer[i++] = color.r;
+	buffer[i++] = color.g;
+	buffer[i  ] = color.b;
 }

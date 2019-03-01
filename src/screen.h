@@ -46,6 +46,8 @@ struct line {
 };
 
 struct cell {
+	uint8_t		background:8;
+	uint8_t		foreground:8;
 	uint32_t	code_point:21;
 	uint8_t		font:5;
 	uint8_t		intensity:2;
@@ -65,6 +67,12 @@ struct cursor {
 	bool conceal, last_column;
 };
 
+struct color {
+	unsigned char r, g, b;
+};
+
+extern const struct cell default_attrs;
+extern struct color palette[256];
 extern int screen_width, screen_height, scroll_top, scroll_bottom;
 extern struct cursor cursor, saved_cursor;
 extern struct line *lines;

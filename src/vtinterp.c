@@ -588,55 +588,73 @@ static void
 select_graphic_rendition()
 {
 	struct cell attrs;
-	int i;
+	int i, param;
 
 	attrs = cursor.attrs;
 
-	for (i = 0; i <= parameter_index; i++)
-		switch (parameters[i]) {
-		case 0:
-			memset(&attrs, 0, sizeof(attrs));
-			cursor.conceal = false;
-			break;
-		case 1: attrs.intensity = INTENSITY_BOLD; break;
-		case 2: attrs.intensity = INTENSITY_FAINT; break;
-		case 3: attrs.italic = true; break;
-		case 4: attrs.underline = UNDERLINE_SINGLE; break;
-		case 5: attrs.blink = BLINK_SLOW; break;
-		case 6: attrs.blink = BLINK_FAST; break;
-		case 7: attrs.negative = true; break;
-		case 8: cursor.conceal = true; break;
-		case 9: attrs.crossed_out = true; break;
-		case 10: attrs.font = 0; break;
-		case 11: attrs.font = 1; break;
-		case 12: attrs.font = 2; break;
-		case 13: attrs.font = 3; break;
-		case 14: attrs.font = 4; break;
-		case 15: attrs.font = 5; break;
-		case 16: attrs.font = 6; break;
-		case 17: attrs.font = 7; break;
-		case 18: attrs.font = 8; break;
-		case 19: attrs.font = 9; break;
-		case 20: attrs.fraktur = true; break;
-		case 21: attrs.underline = UNDERLINE_DOUBLE; break;
-		case 22: attrs.intensity = INTENSITY_NORMAL; break;
-		case 23: attrs.italic = false; attrs.fraktur = false; break;
-		case 24: attrs.underline = UNDERLINE_NONE; break;
-		case 25: attrs.blink = BLINK_NONE; break;
-		case 27: attrs.negative = false; break;
-		case 28: cursor.conceal = false; break;
-		case 29: attrs.crossed_out = false; break;
-		case 38: case 48: // ignore next few arguments
-			if (i++ == parameter_index) return;
-			if (parameters[i] == 5) i++;
-			else if (parameters[i] == 2) i += 3;
-			break;
-		case 51: attrs.frame = FRAME_FRAMED; break;
-		case 52: attrs.frame = FRAME_ENCIRCLED; break;
-		case 53: attrs.overline = true; break;
-		case 54: attrs.frame = FRAME_NONE; break;
-		case 55: attrs.overline = false; break;
-		}
+	for (i = 0; i <= parameter_index; i++) {
+		param = parameters[i];
+
+		if (param >= 10 && param <= 19)
+			attrs.font = param - 10;
+		else if (param >= 30 && param <= 37)
+			attrs.foreground = param - 30;
+		else if (param >= 40 && param <= 47)
+			attrs.background = param - 40;
+		else if (param >= 90 && param <= 97)
+			attrs.foreground = param - 90 + 8;
+		else if (param >= 100 && param <= 107)
+			attrs.background = param - 100 + 8;
+		else
+			switch (param) {
+			case 0:
+				attrs = default_attrs;
+				cursor.conceal = false;
+				break;
+			case 1: attrs.intensity = INTENSITY_BOLD; break;
+			case 2: attrs.intensity = INTENSITY_FAINT; break;
+			case 3: attrs.italic = true; break;
+			case 4: attrs.underline = UNDERLINE_SINGLE; break;
+			case 5: attrs.blink = BLINK_SLOW; break;
+			case 6: attrs.blink = BLINK_FAST; break;
+			case 7: attrs.negative = true; break;
+			case 8: cursor.conceal = true; break;
+			case 9: attrs.crossed_out = true; break;
+			case 20: attrs.fraktur = true; break;
+			case 21: attrs.underline = UNDERLINE_DOUBLE; break;
+			case 22: attrs.intensity = INTENSITY_NORMAL; break;
+			case 23:
+				attrs.italic = false;
+				attrs.fraktur = false;
+				break;
+			case 24: attrs.underline = UNDERLINE_NONE; break;
+			case 25: attrs.blink = BLINK_NONE; break;
+			case 27: attrs.negative = false; break;
+			case 28: cursor.conceal = false; break;
+			case 29: attrs.crossed_out = false; break;
+			case 38: case 48:
+				if (i++ == parameter_index) return;
+
+				switch (parameters[i++]) {
+				case 2:
+					i += 2; // 24-bit not yet supported
+					break;
+				case 5:
+					if (param == 38)
+						attrs.foreground=parameters[i];
+					else
+						attrs.background=parameters[i];
+					break;
+				}
+
+				break;
+			case 51: attrs.frame = FRAME_FRAMED; break;
+			case 52: attrs.frame = FRAME_ENCIRCLED; break;
+			case 53: attrs.overline = true; break;
+			case 54: attrs.frame = FRAME_NONE; break;
+			case 55: attrs.overline = false; break;
+			}
+	}
 
 	cursor.attrs = attrs;
 }

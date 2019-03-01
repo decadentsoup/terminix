@@ -492,8 +492,8 @@ static void
 put_pixel(unsigned char *buffer, int x, int y, struct color color)
 {
 	size_t i;
-	if (x > display_width) return;
-	if (y > display_height) return;
+	if (x >= display_width) return;
+	if (y >= display_height) return;
 	i = (x + y * display_width) * 3;
 	buffer[i++] = color.r;
 	buffer[i++] = color.g;

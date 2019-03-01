@@ -32,9 +32,28 @@
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
+static const char *vertex_shader =
+	"#version 330 core\n"
+	"layout (location = 0) in vec2 vertex;\n"
+	"layout (location = 1) in vec2 texcoord_in;\n"
+	"out vec2 texcoord;\n"
+	"void main() {\n"
+		"gl_Position = vec4(vertex, 0.0, 1.0);\n"
+		"texcoord = texcoord_in;\n"
+	"}\n";
+
+static const char *fragment_shader =
+	"#version 330 core\n"
+	"uniform sampler2D texture_data;\n"
+	"in vec2 texcoord;\n"
+	"out vec4 color;\n"
+	"void main() {\n"
+		"color = texture(texture_data, texcoord);\n"
+	"}\n";
+
 static int display_width, display_height;
 static GLFWwindow *display;
-static GLuint texture;
+static GLuint vbo, texture;
 static int timer_count;
 
 static void handle_exit(void);
@@ -42,6 +61,10 @@ static void handle_glfw_error(int, const char *);
 static void handle_opengl_debug(GLenum, GLenum, GLuint, GLenum, GLsizei,
 	const GLchar *, const void *);
 static void init_glfw(void);
+static void init_glew(void);
+static void init_gl(void);
+static void init_shaders(void);
+static GLuint compile_shader(GLenum, const char *);
 static void update_size(void);
 static void handle_key(GLFWwindow *, int, int, int, int);
 static void handle_char(GLFWwindow *, unsigned int);
@@ -61,6 +84,9 @@ main(int argc UNUSED, char **argv UNUSED)
 	reset();
 	init_ptmx("/bin/bash");
 	init_glfw();
+	init_glew();
+	init_gl();
+	init_shaders();
 
 	while (!glfwWindowShouldClose(display)) {
 		while ((currtime = glfwGetTime()) - lasttick - 0.4 > 0) {
@@ -101,8 +127,6 @@ handle_opengl_debug(GLenum source UNUSED, GLenum type UNUSED, GLuint id UNUSED,
 static void
 init_glfw()
 {
-	GLenum status;
-
 	if (atexit(handle_exit))
 		pdie("failed to register atexit callback");
 
@@ -111,7 +135,8 @@ init_glfw()
 	if (!glfwInit())
 		die("failed to initialize GLFW");
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	// glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 	glfwWindowHint(GLFW_RESIZABLE, false);
 
@@ -125,18 +150,86 @@ init_glfw()
 	glfwSetCharCallback(display, handle_char);
 	glfwMakeContextCurrent(display);
 	glfwSwapInterval(1);
+}
+
+static void
+init_glew()
+{
+	GLenum status;
 
 	if ((status = glewInit()))
 		errx(EXIT_FAILURE, "GLEW: %s", glewGetErrorString(status));
+}
+
+static void
+init_gl()
+{
+	static const GLfloat vertices[] = {
+		-1, -1, 0, 1, +1, -1, 1, 1, -1, +1, 0, 0, +1, +1, 1, 0
+	};
 
 	glDebugMessageCallback(handle_opengl_debug, NULL);
 	glEnable(GL_DEBUG_OUTPUT);
+
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glEnable(GL_TEXTURE_2D);
+}
+
+static void
+init_shaders()
+{
+	extern const char *vertex_shader, *fragment_shader;
+
+	GLuint vertex, fragment, program;
+	GLint status;
+
+	vertex = compile_shader(GL_VERTEX_SHADER, vertex_shader);
+	fragment = compile_shader(GL_FRAGMENT_SHADER, fragment_shader);
+
+	if (!(program = glCreateProgram()))
+		die("failed to create shader program");
+
+	glAttachShader(program, vertex);
+	glAttachShader(program, fragment);
+	glLinkProgram(program);
+	glGetProgramiv(program, GL_LINK_STATUS, &status);
+
+	if (!status)
+		die("failed to link shader program");
+
+	glUseProgram(program);
+	glDeleteShader(vertex);
+	glDeleteShader(fragment);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), NULL);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(1);
+}
+
+static GLuint
+compile_shader(GLenum type, const char *source)
+{
+	GLuint shader;
+	GLint status;
+
+	if (!(shader = glCreateShader(type)))
+		die("failed to create shader");
+
+	glShaderSource(shader, 1, &source, NULL);
+	glCompileShader(shader);
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+
+	if (!status)
+		die("failed to compile shader");
+
+	return shader;
 }
 
 static void
@@ -267,7 +360,7 @@ static void
 render()
 {
 	GLuint buffer[display_width * display_height];
-	int x, y, width, height;
+	int x, y;
 
 	for (y = 0; y < screen_height; y++)
 		for (x = 0; x < screen_width;)
@@ -282,21 +375,9 @@ render()
 			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
 			find_glyph(0x2588));
 
-	glfwGetFramebufferSize(display, &width, &height);
-	glViewport(0, 0, width, height);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0, width, height, 0, -1, 1);
-
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, display_width, display_height,
 		0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buffer);
-	glBegin(GL_QUADS);
-	glTexCoord2f(0, 0); glVertex2f(0, 0);
-	glTexCoord2f(1, 0); glVertex2f(width, 0);
-	glTexCoord2f(1, 1); glVertex2f(width, height);
-	glTexCoord2f(0, 1); glVertex2f(0, height);
-	glEnd();
-
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glfwSwapBuffers(display);
 }
 

@@ -41,14 +41,16 @@ enum {
 	MODE_COUNT
 };
 
+struct color {
+	unsigned char r, g, b;
+};
+
 struct line {
 	char dimensions;
 };
 
 struct cell {
-	uint8_t		bg_r:8, bg_g:8, bg_b:8;
-	uint8_t		fg_r:8, fg_g:8, fg_b:8;
-	bool		bg_truecolor, fg_truecolor;
+	struct color	background, foreground;
 	uint32_t	code_point:21;
 	uint8_t		font:4;
 	uint8_t		intensity:2;
@@ -60,16 +62,14 @@ struct cell {
 	bool		crossed_out:1;
 	bool		fraktur:1;
 	bool		overline:1;
+	bool		bg_truecolor:1;
+	bool		fg_truecolor:1;
 };
 
 struct cursor {
 	struct cell attrs;
 	short x, y;
 	bool conceal, last_column;
-};
-
-struct color {
-	unsigned char r, g, b;
 };
 
 extern const struct cell default_attrs;

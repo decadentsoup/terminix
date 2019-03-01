@@ -399,21 +399,8 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 	else
 		glyph = find_glyph(0x20);
 
-	if (cell->bg_truecolor) {
-		bg.r = cell->bg_r;
-		bg.g = cell->bg_g;
-		bg.b = cell->bg_b;
-	} else {
-		bg = palette[cell->bg_r];
-	}
-
-	if (cell->fg_truecolor) {
-		fg.r = cell->fg_r;
-		fg.g = cell->fg_g;
-		fg.b = cell->fg_b;
-	} else {
-		fg = palette[cell->fg_r];
-	}
+	bg = cell->bg_truecolor ? cell->background : palette[cell->background.r];
+	fg = cell->fg_truecolor ? cell->foreground : palette[cell->foreground.r];
 
 	if (mode[DECSCNM] ^ cell->negative) {
 		swap = bg;

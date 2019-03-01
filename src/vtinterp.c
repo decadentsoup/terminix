@@ -598,16 +598,16 @@ select_graphic_rendition()
 		if (param >= 10 && param <= 19) {
 			attrs.font = param - 10;
 		} else if (param >= 30 && param <= 37) {
-			attrs.fg_r = param - 30;
+			attrs.foreground.r = param - 30;
 			attrs.fg_truecolor = false;
 		} else if (param >= 40 && param <= 47) {
-			attrs.bg_r = param - 40;
+			attrs.background.r = param - 40;
 			attrs.bg_truecolor = false;
 		} else if (param >= 90 && param <= 97) {
-			attrs.fg_r = param - 90 + 8;
+			attrs.foreground.r = param - 90 + 8;
 			attrs.fg_truecolor = false;
 		} else if (param >= 100 && param <= 107) {
-			attrs.bg_r = param - 100 + 8;
+			attrs.background.r = param - 100 + 8;
 			attrs.bg_truecolor = false;
 		} else {
 			switch (param) {
@@ -642,23 +642,23 @@ select_graphic_rendition()
 				switch (parameters[i++]) {
 				case 2:
 					if (param == 38) {
-						attrs.fg_r = parameters[i++];
-						attrs.fg_g = parameters[i++];
-						attrs.fg_b = parameters[i];
+						attrs.foreground.r = parameters[i++];
+						attrs.foreground.g = parameters[i++];
+						attrs.foreground.b = parameters[i];
 						attrs.fg_truecolor = true;
 					} else {
-						attrs.bg_r = parameters[i++];
-						attrs.bg_g = parameters[i++];
-						attrs.bg_b = parameters[i];
+						attrs.background.r = parameters[i++];
+						attrs.background.g = parameters[i++];
+						attrs.background.b = parameters[i];
 						attrs.bg_truecolor = true;
 					}
 					break;
 				case 5:
 					if (param == 38) {
-						attrs.fg_r = parameters[i];
+						attrs.foreground.r = parameters[i];
 						attrs.fg_truecolor = false;
 					} else {
-						attrs.bg_r = parameters[i];
+						attrs.background.r = parameters[i];
 						attrs.fg_truecolor = false;
 					}
 

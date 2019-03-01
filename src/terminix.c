@@ -89,6 +89,7 @@ main(int argc UNUSED, char **argv UNUSED)
 	init_glew();
 	init_gl();
 	init_shaders();
+	lasttick = 0;
 
 	while (!glfwWindowShouldClose(display)) {
 		while ((currtime = glfwGetTime()) - lasttick - 0.4 > 0) {
@@ -285,7 +286,7 @@ handle_key(GLFWwindow *window UNUSED, int key, int scancode UNUSED, int action,
 			key &= ~0x60;
 
 			if (mods & GLFW_MOD_SHIFT)
-				key ^= key & 0x40 ? 0x20 : 0x10;
+				key ^= (key & 0x40) ? 0x20 : 0x10;
 
 			char buffer[2] = {key, 0};
 			buffer_keys(buffer);

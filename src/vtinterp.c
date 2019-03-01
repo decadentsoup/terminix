@@ -588,29 +588,29 @@ static void
 select_graphic_rendition()
 {
 	struct cell attrs;
-	int i, param;
+	int i, parameter;
 
 	attrs = cursor.attrs;
 
 	for (i = 0; i <= parameter_index; i++) {
-		param = parameters[i];
+		parameter = parameters[i];
 
-		if (param >= 10 && param <= 19) {
-			attrs.font = param - 10;
-		} else if (param >= 30 && param <= 37) {
-			attrs.foreground.r = param - 30;
+		if (parameter >= 10 && parameter <= 19) {
+			attrs.font = parameter - 10;
+		} else if (parameter >= 30 && parameter <= 37) {
+			attrs.foreground.r = parameter - 30;
 			attrs.fg_truecolor = false;
-		} else if (param >= 40 && param <= 47) {
-			attrs.background.r = param - 40;
+		} else if (parameter >= 40 && parameter <= 47) {
+			attrs.background.r = parameter - 40;
 			attrs.bg_truecolor = false;
-		} else if (param >= 90 && param <= 97) {
-			attrs.foreground.r = param - 90 + 8;
+		} else if (parameter >= 90 && parameter <= 97) {
+			attrs.foreground.r = parameter - 90 + 8;
 			attrs.fg_truecolor = false;
-		} else if (param >= 100 && param <= 107) {
-			attrs.background.r = param - 100 + 8;
+		} else if (parameter >= 100 && parameter <= 107) {
+			attrs.background.r = parameter - 100 + 8;
 			attrs.bg_truecolor = false;
 		} else {
-			switch (param) {
+			switch (parameter) {
 			case 0:
 				attrs = default_attrs;
 				cursor.conceal = false;
@@ -641,7 +641,7 @@ select_graphic_rendition()
 
 				switch (parameters[i++]) {
 				case 2:
-					if (param == 38) {
+					if (parameter == 38) {
 						attrs.foreground.r = parameters[i++];
 						attrs.foreground.g = parameters[i++];
 						attrs.foreground.b = parameters[i];
@@ -654,7 +654,7 @@ select_graphic_rendition()
 					}
 					break;
 				case 5:
-					if (param == 38) {
+					if (parameter == 38) {
 						attrs.foreground.r = parameters[i];
 						attrs.fg_truecolor = false;
 					} else {

@@ -189,8 +189,6 @@ init_gl()
 static void
 init_shaders()
 {
-	extern const char *vertex_shader, *fragment_shader;
-
 	GLuint vertex, fragment, program;
 	GLint status;
 

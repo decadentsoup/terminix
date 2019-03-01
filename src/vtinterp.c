@@ -595,17 +595,21 @@ select_graphic_rendition()
 	for (i = 0; i <= parameter_index; i++) {
 		param = parameters[i];
 
-		if (param >= 10 && param <= 19)
+		if (param >= 10 && param <= 19) {
 			attrs.font = param - 10;
-		else if (param >= 30 && param <= 37)
-			attrs.foreground = param - 30;
-		else if (param >= 40 && param <= 47)
-			attrs.background = param - 40;
-		else if (param >= 90 && param <= 97)
-			attrs.foreground = param - 90 + 8;
-		else if (param >= 100 && param <= 107)
-			attrs.background = param - 100 + 8;
-		else
+		} else if (param >= 30 && param <= 37) {
+			attrs.fg_r = param - 30;
+			attrs.fg_truecolor = false;
+		} else if (param >= 40 && param <= 47) {
+			attrs.bg_r = param - 40;
+			attrs.bg_truecolor = false;
+		} else if (param >= 90 && param <= 97) {
+			attrs.fg_r = param - 90 + 8;
+			attrs.fg_truecolor = false;
+		} else if (param >= 100 && param <= 107) {
+			attrs.bg_r = param - 100 + 8;
+			attrs.bg_truecolor = false;
+		} else {
 			switch (param) {
 			case 0:
 				attrs = default_attrs;
@@ -637,13 +641,27 @@ select_graphic_rendition()
 
 				switch (parameters[i++]) {
 				case 2:
-					i += 2; // 24-bit not yet supported
+					if (param == 38) {
+						attrs.fg_r = parameters[i++];
+						attrs.fg_g = parameters[i++];
+						attrs.fg_b = parameters[i];
+						attrs.fg_truecolor = true;
+					} else {
+						attrs.bg_r = parameters[i++];
+						attrs.bg_g = parameters[i++];
+						attrs.bg_b = parameters[i];
+						attrs.bg_truecolor = true;
+					}
 					break;
 				case 5:
-					if (param == 38)
-						attrs.foreground=parameters[i];
-					else
-						attrs.background=parameters[i];
+					if (param == 38) {
+						attrs.fg_r = parameters[i];
+						attrs.fg_truecolor = false;
+					} else {
+						attrs.bg_r = parameters[i];
+						attrs.fg_truecolor = false;
+					}
+
 					break;
 				}
 
@@ -654,6 +672,7 @@ select_graphic_rendition()
 			case 54: attrs.frame = FRAME_NONE; break;
 			case 55: attrs.overline = false; break;
 			}
+		}
 	}
 
 	cursor.attrs = attrs;

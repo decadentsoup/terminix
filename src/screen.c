@@ -91,8 +91,8 @@ static const struct color default_palette[256] = {
 };
 
 const struct cell default_attrs = {
-	.background = 0,
-	.foreground = 7
+	.bg_r = 0,
+	.fg_r = 7
 };
 
 struct color palette[256];

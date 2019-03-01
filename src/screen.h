@@ -46,10 +46,11 @@ struct line {
 };
 
 struct cell {
-	uint8_t		background:8;
-	uint8_t		foreground:8;
+	uint8_t		bg_r:8, bg_g:8, bg_b:8;
+	uint8_t		fg_r:8, fg_g:8, fg_b:8;
+	bool		bg_truecolor, fg_truecolor;
 	uint32_t	code_point:21;
-	uint8_t		font:5;
+	uint8_t		font:4;
 	uint8_t		intensity:2;
 	uint8_t		blink:2;
 	uint8_t		underline:2;

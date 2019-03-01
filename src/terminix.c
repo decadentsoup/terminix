@@ -392,17 +392,34 @@ static int
 render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 {
 	const unsigned char *glyph;
-	struct color bg, fg;
+	struct color bg, fg, swap;
 
 	if (cell->code_point)
 		glyph = find_glyph(cell->code_point);
 	else
 		glyph = find_glyph(0x20);
 
-	if (mode[DECSCNM] ^ cell->negative)
-		{ bg = palette[cell->foreground]; fg = palette[cell->background]; }
-	else
-		{ bg = palette[cell->background]; fg = palette[cell->foreground]; }
+	if (cell->bg_truecolor) {
+		bg.r = cell->bg_r;
+		bg.g = cell->bg_g;
+		bg.b = cell->bg_b;
+	} else {
+		bg = palette[cell->bg_r];
+	}
+
+	if (cell->fg_truecolor) {
+		fg.r = cell->fg_r;
+		fg.g = cell->fg_g;
+		fg.b = cell->fg_b;
+	} else {
+		fg = palette[cell->fg_r];
+	}
+
+	if (mode[DECSCNM] ^ cell->negative) {
+		swap = bg;
+		bg = fg;
+		fg = swap;
+	}
 
 	render_glyph(buffer, bg, px, py, dim, find_glyph(0x2588));
 

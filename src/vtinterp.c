@@ -47,6 +47,8 @@ static enum state state;
 static unsigned char intermediate;
 static unsigned short parameters[MAX_PARAMETERS];
 static unsigned char parameter_index;
+static char osc[512];
+static size_t osc_size, osc_data_offset;
 
 // VT100 with Processor Option, Advanced Video Option, and Graphics Option
 static const unsigned char DEVICE_ATTRS[] =
@@ -67,6 +69,9 @@ static void delete_character(void);
 static void device_status_report(void);
 static void set_mode(bool);
 static void select_graphic_rendition(void);
+static void osc_start(void);
+static void osc_put(unsigned char);
+static void osc_end(void);
 
 void
 vtinterp(const unsigned char *buffer, size_t bufsize)
@@ -86,6 +91,7 @@ static void
 interpret(unsigned char byte)
 {
 	// substitute and cancel controls
+	// TODO : should this execute an OSC instruction?
 	if (byte == 0x18 || byte == 0x1A) {
 		NEXT(GROUND);
 		putch(0xFFFD);
@@ -94,6 +100,7 @@ interpret(unsigned char byte)
 
 	// escape control
 	if (byte == 0x1B) {
+		if (state == STATE_OSC_STRING) osc_end();
 		NEXT(ESCAPE);
 		return;
 	}
@@ -114,7 +121,7 @@ interpret(unsigned char byte)
 		COND(byte == 0x50, NEXT(DCS_ENTRY));
 		COND(byte == 0x58, NEXT(SOS_STRING));
 		COND(byte == 0x5B, NEXT(CSI_ENTRY));
-		COND(byte == 0x5D, NEXT(OSC_STRING));
+		COND(byte == 0x5D, osc_start(); NEXT(OSC_STRING));
 		COND(byte == 0x5E, NEXT(PM_STRING));
  		COND(byte == 0x5F, NEXT(APC_STRING));
 		COND(byte <= 0x7E, esc_dispatch(byte));
@@ -166,6 +173,9 @@ interpret(unsigned char byte)
 		warnx("TODO : STATE_DCS_IGNORE");
 		break;
 	case STATE_OSC_STRING:
+		COND(byte == 0x07, osc_end(); NEXT(GROUND));
+		COND(byte >= 0x20 && byte <= 0x7F, osc_put(byte));
+		break;
 	case STATE_SOS_STRING:
 	case STATE_PM_STRING:
 	case STATE_APC_STRING:
@@ -346,6 +356,8 @@ esc_dispatch(unsigned char byte)
 	case 0x5A: // Z - DECID - Identify Terminal
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
 		break;
+	case 0x5C: // \ - ST - String Terminator
+		break; // nothing to do
 	case 0x63: // c - RIS - Reset To Initial Set
 		reset();
 		break;
@@ -698,4 +710,44 @@ device_status_report()
 		write_ptmx_num(cursor.x + 1);
 		write_ptmx(CPR_END, sizeof(CPR_END));
 	}
+}
+
+#define OSC_IS(prefix) (strncmp(prefix ";", osc, sizeof(prefix)) == 0)
+
+static void
+osc_start()
+{
+	memset(osc, 0, sizeof(osc));
+	osc_size = 0;
+	osc_data_offset = 0;
+}
+
+static void
+osc_put(unsigned char byte)
+{
+	if (osc_size < sizeof(osc) - 2) {
+		osc[osc_size++] = byte;
+
+		if (!osc_data_offset && byte == ';')
+			osc_data_offset = osc_size;
+	}
+}
+
+static void
+osc_end()
+{
+	const char *data;
+
+	data = &osc[osc_data_offset];
+
+	if (OSC_IS("0"))
+		warnx("set title and icon name to %s", data);
+	else if (OSC_IS("1") || OSC_IS("2L"))
+		warnx("set icon name to %s", data);
+	else if (OSC_IS("2") || OSC_IS("21"))
+		warnx("set title to %s", data);
+	else if (OSC_IS("3"))
+		warnx("set X property to %s", data);
+	else if (OSC_IS("4"))
+		warnx("set color number to %s", data);
 }

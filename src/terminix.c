@@ -33,7 +33,7 @@
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
 static const char *vertex_shader =
-	"#version 330 core\n"
+	"#version 300 es\n"
 	"layout (location = 0) in vec2 vertex;\n"
 	"layout (location = 1) in vec2 texcoord_in;\n"
 	"out vec2 texcoord;\n"
@@ -43,7 +43,8 @@ static const char *vertex_shader =
 	"}\n";
 
 static const char *fragment_shader =
-	"#version 330 core\n"
+	"#version 300 es\n"
+	"precision mediump float;\n"
 	"uniform sampler2D texture_data;\n"
 	"in vec2 texcoord;\n"
 	"out vec4 color;\n"
@@ -70,9 +71,10 @@ static void handle_key(GLFWwindow *, int, int, int, int);
 static void handle_char(GLFWwindow *, unsigned int);
 static void buffer_keys(const char *);
 static void render(void);
-static int render_cell(GLuint *, int, int, char, struct cell *);
-static void render_glyph(GLuint *, GLuint, int, int, char, const unsigned char *);
-static void put_pixel(GLuint *, int, int, GLuint);
+static int render_cell(unsigned char *, int, int, char, struct cell *);
+static void render_glyph(unsigned char *, GLuint, int, int, char,
+	const unsigned char *);
+static void put_pixel(unsigned char *, int, int, GLuint);
 
 int
 main(int argc UNUSED, char **argv UNUSED)
@@ -135,8 +137,8 @@ init_glfw()
 	if (!glfwInit())
 		die("failed to initialize GLFW");
 
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CLIENT_API,GLFW_OPENGL_ES_API);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 	glfwWindowHint(GLFW_RESIZABLE, false);
 
@@ -362,7 +364,7 @@ buffer_keys(const char *text)
 static void
 render()
 {
-	GLuint buffer[display_width * display_height];
+	unsigned char buffer[display_width * display_height * 3];
 	int x, y;
 
 	for (y = 0; y < screen_height; y++)
@@ -378,14 +380,14 @@ render()
 			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
 			find_glyph(0x2588));
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, display_width, display_height,
-		0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, display_width, display_height, 0,
+		GL_RGB, GL_UNSIGNED_BYTE, buffer);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glfwSwapBuffers(display);
 }
 
 static int
-render_cell(GLuint *buffer, int px, int py, char dim, struct cell *cell)
+render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 {
 	static const GLuint DEFAULT_BG = 0x373737FF;
 	static const GLuint DEFAULT_FG = 0xFFFFFFFF;
@@ -439,7 +441,8 @@ render_cell(GLuint *buffer, int px, int py, char dim, struct cell *cell)
 }
 
 static void
-render_glyph(GLuint *buffer, GLuint color, int px, int py, char dim, const unsigned char *glyph)
+render_glyph(unsigned char *buffer, GLuint color, int px, int py, char dim,
+	const unsigned char *glyph)
 {
 	int i, imax, j, rx, ry, rxmax;
 
@@ -482,9 +485,13 @@ render_glyph(GLuint *buffer, GLuint color, int px, int py, char dim, const unsig
 }
 
 static void
-put_pixel(GLuint *buffer, int x, int y, GLuint color)
+put_pixel(unsigned char *buffer, int x, int y, GLuint color)
 {
+	size_t i;
 	if (x > display_width) return;
 	if (y > display_height) return;
-	buffer[x + y * display_width] = color;
+	i = (x + y * display_width) * 3;
+	buffer[i++] = color >> 24;
+	buffer[i++] = color >> 16;
+	buffer[i  ] = color >>  8;
 }

@@ -19,7 +19,6 @@
 #include <string.h>
 #include <time.h>
 #include <GL/glew.h>
-#include <GL/glu.h>
 #include <GLFW/glfw3.h>
 #include "ptmx.h"
 #include "screen.h"
@@ -287,7 +286,7 @@ render()
 	glViewport(0, 0, width, height);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluOrtho2D(0, width, height, 0);
+	glOrtho(0, width, height, 0, -1, 1);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, display_width, display_height,
 		0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buffer);

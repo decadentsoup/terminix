@@ -53,7 +53,7 @@ static const char *fragment_shader =
 
 static int display_width, display_height;
 static GLFWwindow *display;
-static GLuint vbo, texture;
+static GLuint vao, vbo, texture;
 static int timer_count;
 
 static void handle_exit(void);
@@ -135,7 +135,7 @@ init_glfw()
 	if (!glfwInit())
 		die("failed to initialize GLFW");
 
-	// glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 	glfwWindowHint(GLFW_RESIZABLE, false);
@@ -170,6 +170,9 @@ init_gl()
 
 	glDebugMessageCallback(handle_opengl_debug, NULL);
 	glEnable(GL_DEBUG_OUTPUT);
+
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);

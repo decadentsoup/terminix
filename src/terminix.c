@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 #include <GLFW/glfw3.h>
 #include "ptmx.h"
@@ -28,6 +29,7 @@
 #define CHARWIDTH 8
 #define CHARHEIGHT 16
 
+#define UNUSED __attribute__((unused))
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
@@ -38,6 +40,8 @@ static int timer_count;
 
 static void handle_exit(void);
 static void handle_glfw_error(int, const char *);
+static void handle_opengl_debug(GLenum, GLenum, GLuint, GLenum, GLsizei,
+	const GLchar *, const void *);
 static void init_glfw(void);
 static void update_size(void);
 static void handle_key(GLFWwindow *, int, int, int, int);
@@ -49,7 +53,7 @@ static void render_glyph(GLuint *, GLuint, int, int, char, const unsigned char *
 static void put_pixel(GLuint *, int, int, GLuint);
 
 int
-main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
+main(int argc UNUSED, char **argv UNUSED)
 {
 	unsigned char buffer[1024];
 	double lasttick, currtime;
@@ -82,14 +86,24 @@ handle_exit()
 }
 
 static void
-handle_glfw_error(int error __attribute__((unused)), const char *description)
+handle_glfw_error(int error UNUSED, const char *description)
 {
-	warnx("GLFW returned error: %s", description);
+	warnx("GLFW: %s", description);
+}
+
+static void
+handle_opengl_debug(GLenum source UNUSED, GLenum type UNUSED, GLuint id UNUSED,
+	GLenum severity UNUSED, GLsizei length UNUSED, const GLchar *message,
+	const void *param UNUSED)
+{
+	warnx("OpenGL: %s", message);
 }
 
 static void
 init_glfw()
 {
+	GLenum status;
+
 	if (atexit(handle_exit))
 		pdie("failed to register atexit callback");
 
@@ -112,6 +126,12 @@ init_glfw()
 	glfwSetCharCallback(display, handle_char);
 	glfwMakeContextCurrent(display);
 	glfwSwapInterval(1);
+
+	if ((status = glewInit()))
+		errx(EXIT_FAILURE, "GLEW: %s", glewGetErrorString(status));
+
+	glDebugMessageCallback(handle_opengl_debug, NULL);
+	glEnable(GL_DEBUG_OUTPUT);
 
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
@@ -136,8 +156,8 @@ update_size()
 }
 
 static void
-handle_key(GLFWwindow *window __attribute__((unused)), int key,
-	int scancode __attribute__((unused)), int action, int mods)
+handle_key(GLFWwindow *window UNUSED, int key, int scancode UNUSED, int action,
+	int mods)
 {
 	if (action == GLFW_RELEASE || mode[TRANSMIT_DISABLED])
 		return;
@@ -211,7 +231,7 @@ handle_key(GLFWwindow *window __attribute__((unused)), int key,
 }
 
 static void
-handle_char(GLFWwindow *window __attribute__((unused)), unsigned int code_point)
+handle_char(GLFWwindow *window UNUSED, unsigned int code_point)
 {
 	char buffer[5];
 

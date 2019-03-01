@@ -10,6 +10,7 @@ You can print Klingon, so that's cool.
 
 == Dependencies
 
+* http://glew.sourceforge.net/[GLEW]
 * https://www.glfw.org/[GLFW]
 * http://unifoundry.com/unifont/index.html[GNU Unifont]
 

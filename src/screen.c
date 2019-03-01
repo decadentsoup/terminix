@@ -161,17 +161,13 @@ putch(long ch)
 		newline();
 	}
 
-	// TODO : check behavior on unevenly wide screens
-	cell = &screen[(cursor.x / (lines[cursor.y].dimensions ? 2 : 1)) +
-		cursor.y * screen_width];
-
+	cell = &screen[cursor.x + cursor.y * screen_width];
 	*cell = cursor.attrs;
 
 	if (!cursor.conceal)
 		cell->code_point = ch;
 
-	increment = ((glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1) +
-		(lines[cursor.y].dimensions ? 1 : 0);
+	increment = (glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1;
 
 	if (cursor.x + increment >= screen_width) {
 		if (mode[DECAWM]) cursor.last_column = true;

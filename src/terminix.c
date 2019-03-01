@@ -258,7 +258,8 @@ render()
 				&screen[x + y * screen_width]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
-		render_glyph(buffer, 0xFFFFFFFF, cursor.x * CHARWIDTH,
+		render_glyph(buffer, 0xFFFFFFFF,
+			cursor.x * CHARWIDTH * (lines[y].dimensions ? 2 : 1),
 			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
 			find_glyph(0x2588));
 

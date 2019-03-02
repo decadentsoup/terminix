@@ -245,6 +245,7 @@ update_size()
 		display_width = width;
 		display_height = height;
 		glfwSetWindowSize(display, width, height);
+		glViewport(0, 0, width, height);
 	}
 }
 

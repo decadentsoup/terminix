@@ -18,12 +18,13 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include "ptmx.h"
+#include "vtinterp.h"
 
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
@@ -34,6 +35,7 @@ static unsigned char write_buffer[1024];
 static size_t write_buffer_size;
 
 static _Noreturn void init_child(const char *, const char *);
+static void read_ptmx(void);
 static void flush_ptmx(void);
 
 void
@@ -133,15 +135,72 @@ write_ptmx(const unsigned char *buffer, size_t bufsize)
 		flush_ptmx();
 }
 
+void
+pump_ptmx()
+{
+	struct pollfd pfd;
+	bool loop;
+
+	pfd.fd = ptmx;
+	pfd.events = POLLIN|POLLOUT;
+
+	for (;;)
+		switch (poll(&pfd, 1, 0)) {
+		case 0:
+			warnx("0");
+			return;
+		case 1:
+			if (pfd.revents & POLLERR)
+				die("pseudoterminal is broken");
+
+			if (pfd.revents & POLLHUP)
+				exit(0);
+
+			if (pfd.revents & POLLNVAL)
+				die("pseudoterminal not open");
+
+			loop = false;
+
+			if (pfd.revents & POLLIN) {
+				read_ptmx();
+				loop = true;
+			}
+
+			if (pfd.revents & POLLOUT && write_buffer_size) {
+				flush_ptmx();
+				loop = true;
+			}
+
+			if (loop)
+				break;
+
+			return;
+		default:
+			pdie("failed to poll pseudoterminal");
+		}
+}
+
+static void
+read_ptmx()
+{
+	unsigned char buffer[1024];
+	ssize_t n;
+
+	if ((n = read(ptmx, buffer, sizeof(buffer))) < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+		pdie("failed to read parent pseudoterminal");
+	}
+
+	vtinterp(buffer, n);
+}
+
 static void
 flush_ptmx()
 {
 	ssize_t n;
 
 	if ((n = write(ptmx, write_buffer, write_buffer_size)) < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return;
-
+		if (errno == EAGAIN || errno == EWOULDBLOCK) return;
 		pdie("failed to write to parent pseudoterminal");
 	}
 
@@ -149,19 +208,4 @@ flush_ptmx()
 		write_buffer_size -= n;
 		memmove(write_buffer, write_buffer + n, write_buffer_size);
 	}
-}
-
-size_t
-read_ptmx(unsigned char *buffer, size_t bufsize)
-{
-	ssize_t n;
-
-	if ((n = read(ptmx, buffer, bufsize)) < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return 0;
-
-		pdie("failed to read parent pseudoterminal");
-	}
-
-	return n;
 }

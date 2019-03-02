@@ -17,13 +17,11 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "ptmx.h"
 #include "screen.h"
 #include "unifont.h"
-#include "vtinterp.h"
 
 #define CHARWIDTH 8
 #define CHARHEIGHT 16
@@ -79,7 +77,6 @@ static void put_pixel(unsigned char *, int, int, struct color);
 int
 main(int argc UNUSED, char **argv UNUSED)
 {
-	unsigned char buffer[1024];
 	double lasttick, currtime;
 
 	resize(80, 24);
@@ -98,7 +95,7 @@ main(int argc UNUSED, char **argv UNUSED)
 		}
 
 		glfwPollEvents();
-		vtinterp(buffer, read_ptmx(buffer, sizeof(buffer)));
+		pump_ptmx();
 		update_size();
 		render();
 	}

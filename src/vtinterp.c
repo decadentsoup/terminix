@@ -16,6 +16,8 @@
 #include <err.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "ptmx.h"
 #include "screen.h"
@@ -72,6 +74,8 @@ static void select_graphic_rendition(void);
 static void osc_start(void);
 static void osc_put(unsigned char);
 static void osc_end(void);
+static void change_color(const char *);
+static void parse_sharp_color(struct color *, const char *);
 
 void
 vtinterp(const unsigned char *buffer, size_t bufsize)
@@ -749,5 +753,56 @@ osc_end()
 	else if (OSC_IS("3"))
 		warnx("set X property to %s", data);
 	else if (OSC_IS("4"))
-		warnx("set color number to %s", data);
+		change_color(data);
+}
+
+static void
+change_color(const char *data)
+{
+	int color_index;
+	const char *color_name;
+
+	if (sscanf(data, "%d", &color_index) != 1 || color_index > 255)
+		return;
+
+	if (!(color_name = strchr(data, ';')))
+		return;
+
+	// TODO : support for rgb:, rgbi:, CIEXYZ:, CIEuvY:, CIExyY:, CIELab:,
+	// CIELuv:, TekHVC:, and named colors
+	if (color_name[1] == '#')
+		parse_sharp_color(&palette[color_index], &color_name[2]);
+	else
+		warnx("unrecognized color format: %s", color_name);
+}
+
+static void
+parse_sharp_color(struct color *colorp, const char *text)
+{
+	long long hex;
+
+	hex = strtoll(text, NULL, 16);
+
+	switch (strlen(text)) {
+	case 3:
+		colorp->r = (hex >> 8) * 0x10;
+		colorp->g = (hex >> 4 & 0xF) * 0x10;
+		colorp->b = (hex & 0xF) * 0x10;
+		break;
+	case 6:
+		colorp->r = (hex >> 16);
+		colorp->g = (hex >> 8 & 0xFF);
+		colorp->b = (hex & 0xFF);
+		break;
+	case 9:
+		colorp->r = (hex >> 28);
+		colorp->g = (hex >> 16 & 0xFF);
+		colorp->b = (hex >> 4 & 0xFF);
+		break;
+	case 12:
+		colorp->r = (hex >> 40);
+		colorp->g = (hex >> 24 & 0xFF);
+		colorp->b = (hex >> 8 & 0xFF);
+		break;
+	}
 }

@@ -70,7 +70,7 @@ static void handle_char(GLFWwindow *, unsigned int);
 static void buffer_keys(const char *);
 static void render(void);
 static int render_cell(unsigned char *, int, int, char, struct cell *);
-static void render_glyph(unsigned char *, struct color, int, int, char,
+static void render_glyph(unsigned char *, struct color, int, int, char, bool,
 	const unsigned char *);
 static void put_pixel(unsigned char *, int, int, struct color);
 
@@ -377,7 +377,7 @@ render()
 		render_glyph(buffer, white,
 			cursor.x * CHARWIDTH * (lines[cursor.y].dimensions?2:1),
 			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
-			find_glyph(0x2588));
+			false, find_glyph(0x2588));
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, display_width, display_height, 0,
 		GL_RGB, GL_UNSIGNED_BYTE, buffer);
@@ -389,6 +389,7 @@ static int
 render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 {
 	const unsigned char *glyph;
+	bool dbl;
 	struct color bg, fg, swap;
 
 	if (cell->code_point)
@@ -396,6 +397,7 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 	else
 		glyph = find_glyph(0x20);
 
+	dbl = glyph[0] == 2;
 	bg = cell->bg_truecolor ? cell->background : palette[cell->background.r];
 	fg = cell->fg_truecolor ? cell->foreground : palette[cell->foreground.r];
 
@@ -405,10 +407,7 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 		fg = swap;
 	}
 
-	render_glyph(buffer, bg, px, py, dim, find_glyph(0x2588));
-
-	if (glyph[0] == 2)
-		render_glyph(buffer, bg, px + 8, py, dim, find_glyph(0x2588));
+	render_glyph(buffer, bg, px, py, dim, dbl, find_glyph(0x2588));
 
 	if (cell->blink == BLINK_SLOW && timer_count / 2 % 2)
 		return glyph[0] == 1 ? 1 : 2;
@@ -422,34 +421,38 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 		fg.b /= 2;
 	}
 
-	render_glyph(buffer, fg, px, py, dim, glyph);
+	render_glyph(buffer, fg, px, py, dim, false, glyph);
 
 	if (cell->intensity == INTENSITY_BOLD)
-		render_glyph(buffer, fg, px + 1, py, dim, glyph);
+		render_glyph(buffer, fg, px + 1, py, dim, false, glyph);
 
 	if (cell->underline)
-		render_glyph(buffer, fg, px, py, dim, find_glyph(0x0332));
+		render_glyph(buffer, fg, px, py, dim, dbl, find_glyph(0x0332));
 
 	if (cell->underline == UNDERLINE_DOUBLE)
-		render_glyph(buffer, fg, px, py + 2, dim, find_glyph(0x0332));
+		render_glyph(buffer, fg, px, py + 2, dim, dbl, find_glyph(0x0332));
 
 	if (cell->crossed_out)
-		render_glyph(buffer, fg, px, py, dim, find_glyph(0x2015));
+		render_glyph(buffer, fg, px, py, dim, dbl, find_glyph(0x2015));
 
 	if (cell->overline)
-		render_glyph(buffer, fg, px, py, dim, find_glyph(0x0305));
+		render_glyph(buffer, fg, px, py, dim, dbl, find_glyph(0x0305));
 
-	return glyph[0] == 1 ? 1 : 2;
+	return dbl ? 2 : 1;
 }
 
 static void
 render_glyph(unsigned char *buffer, struct color color, int px, int py,
-	char dim, const unsigned char *glyph)
+	char dim, bool double_wide_glyph, const unsigned char *glyph)
 {
 	int i, imax, j, rx, ry, rxmax;
 
 	if (!glyph)
 		return;
+
+	if (double_wide_glyph)
+		render_glyph(buffer, color, px + (dim ? 16 : 8), py, dim, false,
+			glyph);
 
 	i = 1;
 	imax = glyph[0] == 1 ? 17 : 33;

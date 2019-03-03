@@ -366,7 +366,7 @@ render()
 	unsigned char buffer[display_width * display_height * 3];
 	int x, y;
 
-	for (y = 0; y < screen_height; y++)
+	for (y = screen_height - 1; y >= 0; y--)
 		for (x = 0; x < screen_width;)
 			x += render_cell(buffer,
 				x * CHARWIDTH * (lines[y].dimensions ? 2 : 1),

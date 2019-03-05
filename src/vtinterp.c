@@ -73,7 +73,7 @@ static void execute(unsigned char);
 static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
-static void esc_dispatch_dimensions(unsigned char);
+static void esc_dispatch_private(unsigned char);
 static void esc_dispatch_scs(unsigned char);
 static void unrecognized_escape(unsigned char);
 static void csi_dispatch(unsigned char);
@@ -402,7 +402,7 @@ esc_dispatch(unsigned char byte)
 	NEXT(GROUND);
 
 	if (intermediate == 0x23) {
-		esc_dispatch_dimensions(byte);
+		esc_dispatch_private(byte);
 		return;
 	}
 
@@ -457,7 +457,7 @@ esc_dispatch(unsigned char byte)
 }
 
 static void
-esc_dispatch_dimensions(unsigned char byte)
+esc_dispatch_private(unsigned char byte)
 {
 	int x, y;
 

@@ -417,11 +417,9 @@ esc_dispatch(unsigned char byte)
 
 	switch (byte) {
 	case 0x37: // 7 - DECSC - Save Cursor
-		// TODO : save character set!
 		saved_cursor = cursor;
 		break;
 	case 0x38: // 8 - DECRC - Restore Cursor
-		// TODO : restore character set!
 		cursor = saved_cursor;
 		break;
 	case 0x3D: // = - DECKPAM - Keypad Application Mode

@@ -34,6 +34,7 @@ static int ptmx = -1;
 static unsigned char write_buffer[1024];
 static size_t write_buffer_size;
 
+static void set_nonblock(void);
 static _Noreturn void init_child(const char *, const char *);
 static void read_ptmx(void);
 static void flush_ptmx(void);
@@ -43,9 +44,10 @@ init_ptmx(const char *shell)
 {
 	const char *pts;
 
-	// TODO:standards compliant?
-	if ((ptmx = posix_openpt(O_RDWR|O_NOCTTY|O_NONBLOCK)) < 0)
+	if ((ptmx = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
 		pdie("failed to open parent pseudoterminal");
+
+	set_nonblock();
 
 	if (grantpt(ptmx))
 		pdie("failed to set permissions on child pseudoterminal");
@@ -62,6 +64,18 @@ init_ptmx(const char *shell)
 	case 0:
 		init_child(pts, shell);
 	}
+}
+
+static void
+set_nonblock()
+{
+	int flags;
+
+	if ((flags = fcntl(ptmx, F_GETFL)) < 0)
+		pdie("failed to get pseudoterminal flags");
+
+	if ((fcntl(ptmx, F_SETFL, flags|O_NONBLOCK)) == -1)
+		pdie("failed to set pseudoterminal flags to non-blocking");
 }
 
 static void

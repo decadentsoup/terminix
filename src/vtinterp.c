@@ -83,6 +83,7 @@ static void erase_display(int);
 static void erase_line(int);
 static void delete_character(void);
 static void device_status_report(void);
+static void configure_leds(void);
 static void set_mode(bool);
 static void select_graphic_rendition(void);
 static void osc_start(void);
@@ -568,6 +569,9 @@ csi_dispatch(unsigned char byte)
 	case 0x6E: // n - DSR - Device Status Report
 		device_status_report();
 		break;
+	case 0x71: // q - DECLL - Load LEDs
+		configure_leds();
+		break;
 	case 0x72: // r - DECSTBM - Set Top and Bottom Margins
 		if (!parameters[0]) parameters[0] = 1;
 		if (!parameters[1] || parameters[1] > screen_height)
@@ -834,6 +838,21 @@ device_status_report()
 		write_ptmx_num(cursor.x + 1);
 		write_ptmx(CPR_END, sizeof(CPR_END));
 	}
+}
+
+static void
+configure_leds()
+{
+	int i;
+
+	for (i = 0; i <= parameter_index; i++)
+		switch (parameters[i]) {
+		case 0: warnx("TODO : Clear LEDs"); break;
+		case 1: warnx("TODO : LED 1 On"); break;
+		case 2: warnx("TODO : LED 2 On"); break;
+		case 3: warnx("TODO : LED 3 On"); break;
+		case 4: warnx("TODO : LED 4 On"); break;
+		}
 }
 
 #define OSC_IS(prefix) (strncmp(prefix ";", osc, sizeof(prefix)) == 0)

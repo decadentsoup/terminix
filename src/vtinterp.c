@@ -539,10 +539,10 @@ csi_dispatch(unsigned char byte)
 		warpto(parameters[1] - 1, parameters[0] - 1 + (mode[DECOM] ? scroll_top : 0));
 		break;
 	case 0x4A: // J - ED - Erase In Display
-		erase_display(0);
+		erase_display(parameters[0]);
 		break;
 	case 0x4B: // K - EL - Erase In Line
-		erase_line(0);
+		erase_line(parameters[0]);
 		break;
 	case 0x50: // P - DCH - Delete Character
 		delete_character();

@@ -581,11 +581,15 @@ erase_display(int param)
 
 	switch (param) {
 	case 0:
+		if (cursor.x == 0)
+			lines[cursor.y]->dimensions = SINGLE_WIDTH;
 		erase_line(0);
 		y = cursor.y + 1;
 		n = screen_height;
 		break;
 	case 1:
+		if (cursor.x == screen_width - 1)
+			lines[cursor.y]->dimensions = SINGLE_WIDTH;
 		erase_line(1);
 		y = 0;
 		n = cursor.y;

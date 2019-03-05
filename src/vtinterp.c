@@ -578,12 +578,7 @@ set_mode(bool value)
 			switch (parameters[i]) {
 			case 1: mode[DECCKM] = value; break;
 			// case 2: mode[DECANM] = value; break;
-			case 3:
-				if ((mode[DECCOLM] = value))
-					resize(132, screen_height);
-				else
-					resize(80, screen_height);
-				break;
+			case 3: resize(value ? 132 : 80, screen_height); break;
 			// case 4: mode[DECSCLM] = value; break;
 			case 5: mode[DECSCNM] = value; break;
 			case 6:

@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#include <ctype.h>
 #include <err.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -72,7 +73,9 @@ static void execute(unsigned char);
 static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
-static void esc_dispatch_private(unsigned char);
+static void esc_dispatch_dimensions(unsigned char);
+static void esc_dispatch_scs(unsigned char);
+static void unrecognized_escape(unsigned char);
 static void csi_dispatch(unsigned char);
 static void csi_dispatch_private(unsigned char);
 static void move_cursor(unsigned char, int);
@@ -257,7 +260,8 @@ interpret52(unsigned char byte)
 			mode[DECANM] = true;
 			break;
 		default:
-			warnx("unrecognized escape code -- %c", byte);
+			intermediate = 0;
+			unrecognized_escape(byte);
 			break;
 		}
 	} else {
@@ -352,10 +356,10 @@ execute(unsigned char byte)
 		cursor.x = 0;
 		break;
 	case 0x0E: // Shift Out
-		warnx("TODO : Shift In -- G1 character set");
+		mode[SHIFT_OUT] = true;
 		break;
 	case 0x0F: // Shift In
-		warnx("TODO : Shift Out -- G0 character set");
+		mode[SHIFT_OUT] = false;
 		break;
 	case 0x11: // Device Control 1 - XON
 		mode[TRANSMIT_DISABLED] = false;
@@ -397,12 +401,19 @@ esc_dispatch(unsigned char byte)
 	NEXT(GROUND);
 
 	if (intermediate == 0x23) {
-		esc_dispatch_private(byte);
+		esc_dispatch_dimensions(byte);
 		return;
 	}
 
-	if (intermediate)
+	if (intermediate == 0x28 || intermediate == 0x29) {
+		esc_dispatch_scs(byte);
 		return;
+	}
+
+	if (intermediate) {
+		unrecognized_escape(byte);
+		return;
+	}
 
 	switch (byte) {
 	case 0x37: // 7 - DECSC - Save Cursor
@@ -441,13 +452,13 @@ esc_dispatch(unsigned char byte)
 		reset();
 		break;
 	default:
-		warnx("esc_dispatch(final=%x/%c)", byte, byte);
+		unrecognized_escape(byte);
 		break;
 	}
 }
 
 static void
-esc_dispatch_private(unsigned char byte)
+esc_dispatch_dimensions(unsigned char byte)
 {
 	int x, y;
 
@@ -470,9 +481,35 @@ esc_dispatch_private(unsigned char byte)
 				lines[y]->cells[x].code_point = 0x45;
 		break;
 	default:
-		warnx("esc_dispatch_private(final=%x/%c)", byte, byte);
+		unrecognized_escape(byte);
 		break;
 	}
+}
+
+static void
+esc_dispatch_scs(unsigned char byte)
+{
+	const uint32_t *charset;
+
+	switch (byte) {
+	case 0x30: charset = charset_dec_graphics; break;
+	case 0x31: charset = NULL; break; // Alternate ROM Standard
+	case 0x32: charset = NULL; break; // Alternate ROM Graphics
+	case 0x41: charset = charset_united_kingdom; break;
+	case 0x42: charset = NULL; break; // ASCII
+	default: charset = NULL; break;
+	}
+
+	cursor.charset[intermediate == 0x28 ? 0 : 1] = charset;
+}
+
+static void
+unrecognized_escape(unsigned char byte)
+{
+	if (isprint(byte))
+		warnx("unrecognized escape \"%c%c\"", intermediate, byte);
+	else
+		warnx("unrecognized escape \"%c\" 0x%X", intermediate, byte);
 }
 
 static void

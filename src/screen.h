@@ -26,6 +26,7 @@ enum { FRAME_NONE, FRAME_FRAMED, FRAME_ENCIRCLED };
 
 enum {
 	TRANSMIT_DISABLED,
+	SHIFT_OUT,
 	DECKPAM,
 	LNM,
 	DECCKM,
@@ -67,15 +68,18 @@ struct line {
 };
 
 struct cursor {
-	struct cell	attrs;
-	short		x, y;
-	bool		conceal, last_column;
+	struct cell	 attrs;
+	const uint32_t	*charset[2];
+	short		 x, y;
+	bool		 conceal, last_column;
 };
 
 #define LINE_SIZE(width) \
 	(sizeof(struct line) + (width) * sizeof(struct cell))
 
+extern const uint32_t charset_united_kingdom[], charset_dec_graphics[];
 extern const struct cell default_attrs;
+
 extern struct color palette[256];
 extern bool mode[MODE_COUNT];
 extern struct cursor cursor, saved_cursor;

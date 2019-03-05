@@ -45,6 +45,13 @@ enum state {
 	STATE_APC_STRING
 };
 
+enum state52 {
+	STATE52_GROUND,
+	STATE52_ESCAPE,
+	STATE52_DCA1,
+	STATE52_DCA2
+};
+
 static enum state state;
 static unsigned char intermediate;
 static unsigned short parameters[MAX_PARAMETERS];
@@ -52,11 +59,14 @@ static unsigned char parameter_index;
 static char osc[512];
 static size_t osc_size, osc_data_offset;
 
+static enum state52 state52;
+
 // VT100 with Processor Option, Advanced Video Option, and Graphics Option
 static const unsigned char DEVICE_ATTRS[] =
 	{ 0x1B, 0x5B, 0x3F, 0x31, 0x3B, 0x37, 0x63 };
 
 static void interpret(unsigned char);
+static void interpret52(unsigned char);
 static void print(unsigned char);
 static void execute(unsigned char);
 static void collect(unsigned char);
@@ -65,8 +75,9 @@ static void esc_dispatch(unsigned char);
 static void esc_dispatch_private(unsigned char);
 static void csi_dispatch(unsigned char);
 static void csi_dispatch_private(unsigned char);
-static void erase_display(void);
-static void erase_line(void);
+static void move_cursor(unsigned char, int);
+static void erase_display(int);
+static void erase_line(int);
 static void delete_character(void);
 static void device_status_report(void);
 static void set_mode(bool);
@@ -83,7 +94,10 @@ vtinterp(const unsigned char *buffer, size_t bufsize)
 	size_t i;
 
 	for (i = 0; i < bufsize; i++)
-		interpret(buffer[i]);
+		if (mode[DECANM])
+			interpret(buffer[i]);
+		else
+			interpret52(buffer[i]);
 }
 
 #define COND(condition, action) \
@@ -185,6 +199,69 @@ interpret(unsigned char byte)
 	case STATE_APC_STRING:
 		// ignore everything
 		break;
+	}
+}
+
+static void
+interpret52(unsigned char byte)
+{
+	if (byte == 0x1B) {
+		state52 = STATE52_ESCAPE;
+	} else if (byte <= 0x1F) {
+		execute(byte);
+	} else if (state52 == STATE52_DCA1) {
+		intermediate = byte;
+		state52 = STATE52_DCA2;
+	} else if (state52 == STATE52_DCA2) {
+		warpto(byte - 0x20, intermediate - 0x20);
+		state52 = STATE52_GROUND;
+	} else if (state52 == STATE52_ESCAPE) {
+		state52 = STATE52_GROUND;
+
+		switch (byte) {
+		case 'A': case 'B': case 'C': case 'D':
+			move_cursor(byte, 1);
+			break;
+		case 'F':
+			warnx("vt52 - select special graphics character set");
+			break;
+		case 'G':
+			warnx("vt52 - select ascii character set");
+			break;
+		case 'H':
+			cursor.x = 0;
+			cursor.y = 0;
+			break;
+		case 'I':
+			revline();
+			break;
+		case 'J':
+			erase_display(0);
+			break;
+		case 'K':
+			erase_line(0);
+			break;
+		case 'Y':
+			state52 = STATE52_DCA1;
+			break;
+		case 'Z':
+			write_ptmx((unsigned char *)"\33/Z", 3);
+			break;
+		case '=':
+			mode[DECKPAM] = true;
+			break;
+		case '>':
+			mode[DECKPAM] = false;
+			break;
+		case '<':
+			mode[DECANM] = true;
+			break;
+		default:
+			warnx("unrecognized escape code -- %c", byte);
+			break;
+		}
+	} else {
+		print(byte);
 	}
 }
 
@@ -353,9 +430,7 @@ esc_dispatch(unsigned char byte)
 		tabstops[cursor.x] = true;
 		break;
 	case 0x4D: // M - RI - Reverse Index
-		if (cursor.y > scroll_top) warpto(cursor.x, cursor.y - 1);
-		else scrolldown();
-		cursor.last_column = false;
+		revline();
 		break;
 	case 0x5A: // Z - DECID - Identify Terminal
 		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
@@ -421,25 +496,17 @@ csi_dispatch(unsigned char byte)
 	case 0x42: // B - CUD - Cursor Down
 	case 0x43: // C - CUF - Cursor Forward
 	case 0x44: // D - CUB - Cursor Backward
-		if (!parameters[0]) parameters[0] = 1;
-
-		switch (byte) {
-		case 0x41: warpto(cursor.x, cursor.y - parameters[0]); break;
-		case 0x42: warpto(cursor.x, cursor.y + parameters[0]); break;
-		case 0x43: warpto(cursor.x + parameters[0], cursor.y); break;
-		case 0x44: warpto(cursor.x - parameters[0], cursor.y); break;
-		}
-
+		move_cursor(byte, parameters[0] ? parameters[0] : 1);
 		break;
 	case 0x48: // H - CUP - Cursor Position
 	case 0x66: // f - HVP - Horizontal and Vertical Position
 		warpto(parameters[1] - 1, parameters[0] - 1 + (mode[DECOM] ? scroll_top : 0));
 		break;
 	case 0x4A: // J - ED - Erase In Display
-		erase_display();
+		erase_display(0);
 		break;
 	case 0x4B: // K - EL - Erase In Line
-		erase_line();
+		erase_line(0);
 		break;
 	case 0x50: // P - DCH - Delete Character
 		delete_character();
@@ -497,18 +564,29 @@ csi_dispatch_private(unsigned char byte)
 }
 
 static void
-erase_display()
+move_cursor(unsigned char direction, int amount)
+{
+	switch (direction) {
+	case 0x41: warpto(cursor.x, cursor.y - amount); break;
+	case 0x42: warpto(cursor.x, cursor.y + amount); break;
+	case 0x43: warpto(cursor.x + amount, cursor.y); break;
+	case 0x44: warpto(cursor.x - amount, cursor.y); break;
+	}
+}
+
+static void
+erase_display(int param)
 {
 	int x, y, n;
 
-	switch (parameters[0]) {
+	switch (param) {
 	case 0:
-		erase_line();
+		erase_line(0);
 		y = cursor.y + 1;
 		n = screen_height;
 		break;
 	case 1:
-		erase_line();
+		erase_line(1);
 		y = 0;
 		n = cursor.y;
 		break;
@@ -531,11 +609,11 @@ erase_display()
 }
 
 static void
-erase_line()
+erase_line(int param)
 {
 	int x, max;
 
-	switch (parameters[0]) {
+	switch (param) {
 	case 0: x = cursor.x; max = screen_width; break;
 	case 1: x = 0; max = cursor.x + 1; break;
 	case 2: x = 0; max = screen_width; break;
@@ -585,7 +663,7 @@ set_mode(bool value)
 		} else if (intermediate == 0x3F) {
 			switch (parameters[i]) {
 			case 1: mode[DECCKM] = value; break;
-			// case 2: mode[DECANM] = value; break;
+			case 2: mode[DECANM] = value; break;
 			case 3: resize(value ? 132 : 80, screen_height); break;
 			// case 4: mode[DECSCLM] = value; break;
 			case 5: mode[DECSCNM] = value; break;

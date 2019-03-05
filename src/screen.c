@@ -225,6 +225,17 @@ newline()
 }
 
 void
+revline()
+{
+	cursor.last_column = false;
+
+	if (cursor.y > scroll_top)
+		warpto(cursor.x, cursor.y - 1);
+	else
+		scrolldown();
+}
+
+void
 putch(long ch)
 {
 	struct cell *cell;

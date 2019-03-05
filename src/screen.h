@@ -90,6 +90,7 @@ void warpto(int, int);
 void scrollup(void);
 void scrolldown(void);
 void newline(void);
+void revline(void);
 void putch(long);
 
 #endif

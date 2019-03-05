@@ -369,14 +369,14 @@ render()
 	for (y = screen_height - 1; y >= 0; y--)
 		for (x = 0; x < screen_width;)
 			x += render_cell(buffer,
-				x * CHARWIDTH * (lines[y].dimensions ? 2 : 1),
-				y * CHARHEIGHT, lines[y].dimensions,
-				&screen[x + y * screen_width]);
+				x * CHARWIDTH * (lines[y]->dimensions ? 2 : 1),
+				y * CHARHEIGHT, lines[y]->dimensions,
+				&lines[y]->cells[x]);
 
 	if (mode[DECTCEM] && timer_count / 2 % 2)
 		render_glyph(buffer, white,
-			cursor.x * CHARWIDTH * (lines[cursor.y].dimensions?2:1),
-			cursor.y * CHARHEIGHT, lines[cursor.y].dimensions,
+			cursor.x * CHARWIDTH * (lines[cursor.y]->dimensions ? 2 : 1),
+			cursor.y * CHARHEIGHT, lines[cursor.y]->dimensions,
 			false, find_glyph(0x2588));
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, display_width, display_height, 0,

@@ -30,7 +30,6 @@ enum {
 	LNM,
 	DECCKM,
 	DECANM,
-	DECCOLM,
 	DECSCLM,
 	DECSCNM,
 	DECOM,
@@ -43,10 +42,6 @@ enum {
 
 struct color {
 	unsigned char r, g, b;
-};
-
-struct line {
-	char dimensions;
 };
 
 struct cell {
@@ -66,20 +61,27 @@ struct cell {
 	bool		fg_truecolor:1;
 };
 
-struct cursor {
-	struct cell attrs;
-	short x, y;
-	bool conceal, last_column;
+struct line {
+	char		dimensions;
+	struct cell	cells[];
 };
+
+struct cursor {
+	struct cell	attrs;
+	short		x, y;
+	bool		conceal, last_column;
+};
+
+#define LINE_SIZE(width) \
+	(sizeof(struct line) + (width) * sizeof(struct cell))
 
 extern const struct cell default_attrs;
 extern struct color palette[256];
-extern int screen_width, screen_height, scroll_top, scroll_bottom;
-extern struct cursor cursor, saved_cursor;
-extern struct line *lines;
-extern struct cell *screen;
-extern bool *tabstops;
 extern bool mode[MODE_COUNT];
+extern struct cursor cursor, saved_cursor;
+extern bool *tabstops;
+extern struct line **lines;
+extern short screen_width, screen_height, scroll_top, scroll_bottom;
 
 void deinit_screen(void);
 void resize(int, int);

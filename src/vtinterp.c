@@ -374,25 +374,25 @@ esc_dispatch(unsigned char byte)
 static void
 esc_dispatch_private(unsigned char byte)
 {
-	int i;
+	int x, y;
 
 	switch (byte) {
 	case 0x33: // 3 - DECDHL - Double-Height Line (Top)
-		lines[cursor.y].dimensions = DOUBLE_HEIGHT_TOP;
+		lines[cursor.y]->dimensions = DOUBLE_HEIGHT_TOP;
 		break;
 	case 0x34: // 4 - DECDHL - Double-Height Line (Bottom)
-		lines[cursor.y].dimensions = DOUBLE_HEIGHT_BOTTOM;
+		lines[cursor.y]->dimensions = DOUBLE_HEIGHT_BOTTOM;
 		break;
 	case 0x35: // 5 - DECSWL - Single-Width Line
-		lines[cursor.y].dimensions = SINGLE_WIDTH;
+		lines[cursor.y]->dimensions = SINGLE_WIDTH;
 		break;
 	case 0x36: // 6 - DECDWL - Double-Width Line
-		lines[cursor.y].dimensions = DOUBLE_WIDTH;
+		lines[cursor.y]->dimensions = DOUBLE_WIDTH;
 		break;
 	case 0x38: // 8 - DECALN - Screen Alignment Display
-		memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
-		for (i = 0; i < screen_width * screen_height; i++)
-			screen[i].code_point = 0x45;
+		for (y = 0; y < screen_height; y++)
+			for (x = 0; x < screen_width; x++)
+				lines[y]->cells[x].code_point = 0x45;
 		break;
 	default:
 		warnx("esc_dispatch_private(final=%x/%c)", byte, byte);
@@ -499,27 +499,33 @@ csi_dispatch_private(unsigned char byte)
 static void
 erase_display()
 {
-	int i, n;
+	int x, y, n;
 
 	switch (parameters[0]) {
 	case 0:
-		i = cursor.x + cursor.y * screen_width;
-		n = screen_width * screen_height;
+		erase_line();
+		y = cursor.y + 1;
+		n = screen_height;
 		break;
 	case 1:
-		i = 0;
-		n = cursor.x + cursor.y * screen_width + 1;
+		erase_line();
+		y = 0;
+		n = cursor.y;
 		break;
 	case 2:
-		i = 0;
-		n = screen_width * screen_height;
+		y = 0;
+		n = screen_height;
 		break;
 	default:
 		return;
 	}
 
-	for (; i < n; i++)
-		screen[i] = cursor.attrs;
+	for (; y < n; y++) {
+		lines[y]->dimensions = SINGLE_WIDTH;
+
+		for (x = 0; x < screen_width; x++)
+			lines[y]->cells[x] = cursor.attrs;
+	}
 
 	cursor.last_column = false;
 }
@@ -537,7 +543,7 @@ erase_line()
 	}
 
 	for (; x < max; x++)
-		screen[x + cursor.y * screen_width] = cursor.attrs;
+		lines[cursor.y]->cells[x] = cursor.attrs;
 
 	cursor.last_column = false;
 }
@@ -545,7 +551,10 @@ erase_line()
 static void
 delete_character()
 {
+	struct line *line;
 	int max;
+
+	line = lines[cursor.y];
 
 	if (parameters[0] == 0)
 		parameters[0] = 1;
@@ -553,11 +562,10 @@ delete_character()
 	if (parameters[0] > (max = screen_width - cursor.x - 1))
 		parameters[0] = max;
 
-	memmove(&screen[cursor.x + cursor.y * screen_width],
-		&screen[cursor.x + cursor.y * screen_width + parameters[0]],
-		(screen_width - parameters[0]) * sizeof(struct cell));
+	memmove(&line->cells[cursor.x], &line->cells[cursor.x + parameters[0]],
+		(screen_width - parameters[0] - cursor.x) * sizeof(struct cell));
 
-	memset(&screen[(cursor.y + 1) * screen_width - parameters[0]], 0,
+	memset(&line->cells[screen_width - parameters[0]], 0,
 		parameters[0] * sizeof(struct cell));
 
 	cursor.last_column = false;

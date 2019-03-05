@@ -96,18 +96,21 @@ const struct cell default_attrs = {
 };
 
 struct color palette[256];
-int screen_width, screen_height, scroll_top, scroll_bottom;
-struct cursor cursor, saved_cursor;
-struct line *lines;
-struct cell *screen;
-bool *tabstops;
 bool mode[MODE_COUNT];
+struct cursor cursor, saved_cursor;
+bool *tabstops;
+struct line **lines;
+short screen_width, screen_height, scroll_top, scroll_bottom;
 
 void
 deinit_screen()
 {
+	int i;
+
+	for (i = 0; i < screen_height; i++)
+		free(lines[i]);
+
 	free(lines);
-	free(screen);
 	free(tabstops);
 }
 
@@ -118,22 +121,23 @@ resize(int width, int height)
 
 	deinit_screen();
 
-	if (!(lines = calloc(height, sizeof(struct line))))
-		pdie("failed to allocate line memory");
-
-	if (!(screen = calloc(width * height, sizeof(struct cell))))
-		pdie("failed to allocate screen memory");
-
 	if (!(tabstops = calloc(width, sizeof(bool))))
 		pdie("failed to allocate tab stop memory");
 
 	for (i = 8; i < width; i += 8)
 		tabstops[i] = true;
 
+	if (!(lines = calloc(height, sizeof(struct line *))))
+		pdie("failed to allocate line array memory");
+
+	for (i = 0; i < height; i++)
+		if (!(lines[i] = calloc(LINE_SIZE(width), 1)))
+			pdie("failed to allocate line memory");
+
 	screen_width = width;
 	screen_height = height;
 	scroll_top = 0;
-	scroll_bottom = screen_height - 1;
+	scroll_bottom = height - 1;
 	cursor.x = 0;
 	cursor.y = 0;
 }
@@ -145,12 +149,6 @@ reset()
 
 	memcpy(palette, default_palette, sizeof(palette));
 
-	memset(&cursor, 0, sizeof(cursor));
-	cursor.attrs = default_attrs;
-
-	memset(lines, 0, screen_height * sizeof(struct line));
-	memset(screen, 0, screen_width * screen_height * sizeof(struct cell));
-
 	memset(mode, 0, sizeof(mode));
 	mode[DECANM] = true;
 	mode[DECSCLM] = true;
@@ -158,13 +156,19 @@ reset()
 	mode[DECINLM] = true;
 	mode[DECTCEM] = true;
 
+	memset(&cursor, 0, sizeof(cursor));
+	cursor.attrs = default_attrs;
+
 	memset(tabstops, 0, screen_width * sizeof(bool));
 	for (i = 8; i < screen_width; i += 8)
 		tabstops[i] = true;
 
+	for (i = 0; i < screen_height; i++)
+		memset(lines[i], 0, LINE_SIZE(screen_width));
+
+	saved_cursor = cursor;
 	scroll_top = 0;
 	scroll_bottom = screen_height - 1;
-	saved_cursor = cursor;
 }
 
 void
@@ -186,33 +190,27 @@ warpto(int x, int y)
 void
 scrollup()
 {
+	struct line *temp;
+
+	memset((temp = lines[scroll_top]), 0, LINE_SIZE(screen_width));
+
 	memmove(&lines[scroll_top], &lines[scroll_top + 1],
-		(scroll_bottom - scroll_top) * sizeof(struct line));
+		(scroll_bottom - scroll_top) * sizeof(struct line *));
 
-	memset(&lines[scroll_bottom], 0, sizeof(struct line));
-
-	memmove(&screen[scroll_top * screen_width],
-		&screen[(scroll_top + 1) * screen_width],
-		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
-
-	memset(&screen[screen_width * scroll_bottom], 0,
-		screen_width * sizeof(struct cell));
+	lines[scroll_bottom] = temp;
 }
 
 void
 scrolldown()
 {
+	struct line *temp;
+
+	memset((temp = lines[scroll_bottom]), 0, LINE_SIZE(screen_width));
+
 	memmove(&lines[scroll_top + 1], &lines[scroll_top],
-		(scroll_bottom - scroll_top) * sizeof(struct line));
+		(scroll_bottom - scroll_top) * sizeof(struct line *));
 
-	memset(&lines[scroll_top], 0, sizeof(struct line));
-
-	memmove(&screen[(scroll_top + 1) * screen_width],
-		&screen[scroll_top * screen_width],
-		screen_width * (scroll_bottom - scroll_top) * sizeof(struct cell));
-
-	memset(&screen[screen_width * scroll_top], 0,
-		screen_width * sizeof(struct cell));
+	lines[scroll_top] = temp;
 }
 
 void
@@ -238,7 +236,7 @@ putch(long ch)
 		newline();
 	}
 
-	cell = &screen[cursor.x + cursor.y * screen_width];
+	cell = &lines[cursor.y]->cells[cursor.x];
 	*cell = cursor.attrs;
 
 	if (!cursor.conceal)

@@ -97,6 +97,12 @@ main(int argc UNUSED, char **argv UNUSED)
 	}
 }
 
+void
+set_title(const char *title)
+{
+	glfwSetWindowTitle(display, title);
+}
+
 static void
 handle_exit()
 {

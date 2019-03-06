@@ -26,6 +26,10 @@
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
+// --- user interface --- //
+
+void set_title(const char *);
+
 // --- pseudoterminals --- //
 
 void init_ptmx(const char *);

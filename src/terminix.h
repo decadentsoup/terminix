@@ -1,4 +1,4 @@
-// screen.h - screen management routines
+// terminix.h - common headers, structures, variables, and routines
 // Copyright (C) 2019 Megan Ruggiero. All rights reserved.
 //
 // Permission to use, copy, modify, and distribute this software for any
@@ -13,8 +13,48 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#ifndef SCREEN_H
-#define SCREEN_H
+#ifndef TERMINIX_H
+#define TERMINIX_H
+
+#include <err.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+// --- error handling --- //
+
+#define die(message) (errx(EXIT_FAILURE, "%s", message))
+#define pdie(message) (err(EXIT_FAILURE, "%s", message))
+
+// --- pseudoterminals --- //
+
+void init_ptmx(const char *);
+void deinit_ptmx(void);
+void write_ptmx_num(unsigned int);
+void write_ptmx(const unsigned char *, size_t);
+void pump_ptmx(void);
+
+// --- escape codes --- //
+
+void vtinterp(const unsigned char *, size_t);
+
+// --- unifont --- //
+
+extern const unsigned char *const plane0and1[];
+extern const unsigned char *const plane15[];
+static inline const unsigned char *
+find_glyph(long code_point)
+{
+	if (code_point >= 0x000000 && code_point <= 0x01FFFF)
+		return plane0and1[code_point];
+
+	if (code_point >= 0x0F0000 && code_point <= 0x0FFFFF)
+		return plane15[code_point - 0x0F0000];
+
+	return 0;
+}
+
+// --- screen management --- //
 
 // DOUBLE_HEIGHT_* must come after DOUBLE_WIDTH for render_glyph() to work.
 enum { SINGLE_WIDTH, DOUBLE_WIDTH, DOUBLE_HEIGHT_TOP, DOUBLE_HEIGHT_BOTTOM };
@@ -24,42 +64,17 @@ enum { BLINK_NONE, BLINK_SLOW, BLINK_FAST };
 enum { UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE };
 enum { FRAME_NONE, FRAME_FRAMED, FRAME_ENCIRCLED };
 
-enum {
-	TRANSMIT_DISABLED,
-	SHIFT_OUT,
-	DECKPAM,
-	LNM,
-	DECCKM,
-	DECANM,
-	DECSCLM,
-	DECSCNM,
-	DECOM,
-	DECAWM,
-	DECARM,
-	DECINLM,
-	DECTCEM,
-	MODE_COUNT
-};
+enum { TRANSMIT_DISABLED, SHIFT_OUT, DECKPAM, LNM, DECCKM, DECANM, DECSCLM,
+	DECSCNM, DECOM, DECAWM, DECARM, DECINLM, DECTCEM, MODE_COUNT };
 
-struct color {
-	unsigned char r, g, b;
-};
+struct color { uint8_t r, g, b; };
 
 struct cell {
 	struct color	background, foreground;
 	uint32_t	code_point:21;
-	uint8_t		font:4;
-	uint8_t		intensity:2;
-	uint8_t		blink:2;
-	uint8_t		underline:2;
-	uint8_t		frame:2;
-	bool		italic:1;
-	bool		negative:1;
-	bool		crossed_out:1;
-	bool		fraktur:1;
-	bool		overline:1;
-	bool		bg_truecolor:1;
-	bool		fg_truecolor:1;
+	uint8_t		font:4, intensity:2, blink:2, underline:2, frame:2;
+	bool		italic:1, negative:1, crossed_out:1, fraktur:1,
+			overline:1, bg_truecolor:1, fg_truecolor:1;
 };
 
 struct line {
@@ -97,4 +112,4 @@ void newline(void);
 void revline(void);
 void putch(long);
 
-#endif
+#endif // !TERMINIX_H

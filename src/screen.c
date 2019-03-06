@@ -13,13 +13,9 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <err.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "screen.h"
-#include "unifont.h"
+#include "terminix.h"
 
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 

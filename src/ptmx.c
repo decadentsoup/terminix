@@ -15,16 +15,13 @@
 
 #define _DEFAULT_SOURCE
 #define _XOPEN_SOURCE 600
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "ptmx.h"
-#include "vtinterp.h"
+#include "terminix.h"
 
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))

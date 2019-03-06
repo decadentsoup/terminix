@@ -13,15 +13,11 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <err.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include "ptmx.h"
-#include "screen.h"
-#include "unifont.h"
+#include "terminix.h"
 
 #define CHARWIDTH 8
 #define CHARHEIGHT 16

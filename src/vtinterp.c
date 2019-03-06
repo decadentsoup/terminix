@@ -14,15 +14,10 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <ctype.h>
-#include <err.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ptmx.h"
-#include "screen.h"
-#include "vtinterp.h"
+#include "terminix.h"
 
 #define MAX_PARAMETERS 16
 #define PARAMETER_MAX 16383

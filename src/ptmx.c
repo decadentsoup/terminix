@@ -155,9 +155,6 @@ pump_ptmx()
 
 	for (;;)
 		switch (poll(&pfd, 1, 0)) {
-		case 0:
-			warnx("0");
-			return;
 		case 1:
 			if (pfd.revents & POLLERR)
 				die("pseudoterminal is broken");

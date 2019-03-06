@@ -23,8 +23,6 @@
 #define CHARHEIGHT 16
 
 #define UNUSED __attribute__((unused))
-#define die(message) (errx(EXIT_FAILURE, "%s", message))
-#define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
 static const char *vertex_shader =
 	"#version 300 es\n"

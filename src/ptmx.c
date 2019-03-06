@@ -23,8 +23,6 @@
 #include <unistd.h>
 #include "terminix.h"
 
-#define die(message) (errx(EXIT_FAILURE, "%s", message))
-#define pdie(message) (err(EXIT_FAILURE, "%s", message))
 #define pdiec(message) (pdie("[child] " message))
 
 static int ptmx = -1;

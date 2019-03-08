@@ -15,8 +15,11 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <time.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <GLES2/gl2.h>
+#include <EGL/egl.h>
 #include "terminix.h"
 
 #define CHARWIDTH 8
@@ -44,23 +47,27 @@ static const char *fragment_shader =
 		"color = texture(texture_data, texcoord);\n"
 	"}\n";
 
-static int display_width, display_height;
-static GLFWwindow *display;
+static Display *display;
+static Atom wm_delete_window;
+static Window window;
+static int window_width, window_height, timer_count;
+static EGLDisplay egl_display;
+static EGLContext egl_context;
+static EGLSurface egl_surface;
 static GLuint vao, vbo, texture;
-static int timer_count;
 
+static void (*genVertexArrays)(GLsizei, GLuint *);
+static void (*bindVertexArray)(GLuint);
+
+static uint64_t get_time(void);
 static void handle_exit(void);
-static void handle_glfw_error(int, const char *);
-static void handle_opengl_debug(GLenum, GLenum, GLuint, GLenum, GLsizei,
-	const GLchar *, const void *);
-static void init_glfw(void);
-static void init_glew(void);
+static void init_x11(void);
+static void init_egl(void);
 static void init_gl(void);
 static void init_shaders(void);
 static GLuint compile_shader(GLenum, const char *);
 static void update_size(void);
-static void handle_key(GLFWwindow *, int, int, int, int);
-static void handle_char(GLFWwindow *, unsigned int);
+static void handle_key(XKeyEvent *);
 static void buffer_keys(const char *);
 static void render(void);
 static int render_cell(unsigned char *, int, int, char, struct cell *);
@@ -71,94 +78,155 @@ static void put_pixel(unsigned char *, int, int, struct color);
 int
 main(int argc UNUSED, char **argv UNUSED)
 {
-	double lasttick, currtime;
+	uint64_t lasttick, currtime;
+	XEvent event;
+
+	if (atexit(handle_exit))
+		pdie("failed to register exit callback");
 
 	resize(80, 24);
 	reset();
 	init_ptmx("/bin/bash");
-	init_glfw();
-	init_glew();
+	init_x11();
+	init_egl();
 	init_gl();
 	init_shaders();
 	lasttick = 0;
 
-	while (!glfwWindowShouldClose(display)) {
-		while ((currtime = glfwGetTime()) - lasttick - 0.4 > 0) {
+	for (;;) {
+		while ((currtime = get_time()) - lasttick > 400000000) {
 			lasttick = currtime;
 			timer_count++;
 		}
 
-		glfwPollEvents();
+		while (XPending(display)) {
+			XNextEvent(display, &event);
+
+			switch (event.type) {
+			case KeyPress:
+				handle_key(&event.xkey);
+				break;
+			case ClientMessage:
+				if ((Atom)event.xclient.data.l[0] == wm_delete_window)
+					return 0;
+				break;
+			case MappingNotify:
+				switch (event.xmapping.request) {
+				case MappingModifier:
+				case MappingKeyboard:
+					XRefreshKeyboardMapping(&event.xmapping);
+					break;
+				}
+				break;
+			}
+		}
+
 		pump_ptmx();
 		update_size();
 		render();
 	}
 }
 
+static uint64_t
+get_time()
+{
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1)
+		pdie("failed to get time");
+
+	return ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
 void
 set_title(const char *title)
 {
-	glfwSetWindowTitle(display, title);
+	// TODO : UTF-8
+	XStoreName(display, window, title);
 }
 
 static void
 handle_exit()
 {
-	glfwDestroyWindow(display);
-	glfwTerminate();
+	XCloseDisplay(display);
+	eglTerminate(egl_display);
 	deinit_ptmx();
 	deinit_screen();
 }
 
 static void
-handle_glfw_error(int error UNUSED, const char *description)
+init_x11()
 {
-	warnx("GLFW: %s", description);
+	XSetWindowAttributes attrs;
+	XSizeHints normal_hints;
+
+	if (!(display = XOpenDisplay(NULL)))
+		die("failed to connect to X server");
+
+	wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", false);
+
+	window_width = screen_width * CHARWIDTH;
+	window_height = screen_height * CHARHEIGHT;
+
+	attrs.event_mask = KeyPressMask;
+
+	window = XCreateWindow(display, DefaultRootWindow(display), 0, 0,
+		window_width, window_height, 0, CopyFromParent, InputOutput,
+		CopyFromParent, CWEventMask, &attrs);
+
+	normal_hints.flags = PMinSize|PMaxSize;
+	normal_hints.min_width = window_width;
+	normal_hints.min_height = window_height;
+	normal_hints.max_width = window_width;
+	normal_hints.max_height = window_height;
+
+	XStoreName(display, window, "Terminix");
+	XSetIconName(display, window, "Terminix");
+	XSetWMNormalHints(display, window, &normal_hints);
+	// TODO : WM_HINTS, WM_CLASS
+	XSetWMProtocols(display, window, &wm_delete_window, 1);
+	// TODO : XSetWMClientMachine(...);
+	XMapWindow(display, window);
 }
 
 static void
-handle_opengl_debug(GLenum source UNUSED, GLenum type UNUSED, GLuint id UNUSED,
-	GLenum severity UNUSED, GLsizei length UNUSED, const GLchar *message,
-	const void *param UNUSED)
+init_egl()
 {
-	warnx("OpenGL: %s", message);
-}
+	static const EGLint cfg_attrs[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE };
+	static const EGLint ctx_attrs[] = { EGL_CONTEXT_MAJOR_VERSION, 2, EGL_NONE };
 
-static void
-init_glfw()
-{
-	if (atexit(handle_exit))
-		pdie("failed to register atexit callback");
+	EGLConfig config;
+	EGLint num_config;
 
-	glfwSetErrorCallback(handle_glfw_error);
+	if ((egl_display = eglGetDisplay(display)) == EGL_NO_DISPLAY)
+		die("failed to get EGL display");
 
-	if (!glfwInit())
-		die("failed to initialize GLFW");
+	if (!eglInitialize(egl_display, NULL, NULL))
+		die("failed to initialize EGL");
 
-	glfwWindowHint(GLFW_CLIENT_API,GLFW_OPENGL_ES_API);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-	glfwWindowHint(GLFW_RESIZABLE, false);
+	if (!eglChooseConfig(egl_display, cfg_attrs, &config, 1, &num_config))
+		die("failed to find compatible EGL configuration");
 
-	display_width = screen_width * CHARWIDTH;
-	display_height = screen_height * CHARHEIGHT;
-	if (!(display = glfwCreateWindow(display_width, display_height,
-		"Terminix", NULL, NULL)))
-		die("failed to create main window");
+	if (num_config != 1)
+		die("failed to find compatible EGL configuration: none found");
 
-	glfwSetKeyCallback(display, handle_key);
-	glfwSetCharCallback(display, handle_char);
-	glfwMakeContextCurrent(display);
-	glfwSwapInterval(1);
-}
+	if ((egl_surface = eglCreateWindowSurface(egl_display, config, window, NULL)) == EGL_NO_SURFACE)
+		die("failed to create EGL surface");
 
-static void
-init_glew()
-{
-	GLenum status;
+	if ((egl_context = eglCreateContext(egl_display, config, EGL_NO_CONTEXT, ctx_attrs)) == EGL_NO_CONTEXT)
+		die("failed to create EGL context");
 
-	if ((status = glewInit()))
-		errx(EXIT_FAILURE, "GLEW: %s", glewGetErrorString(status));
+	if (!eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context))
+		die("failed to make EGL context current");
+
+	if (!eglSwapInterval(display, 1))
+		warnx("failed to enable vertical synchronization");
+
+	if (!(genVertexArrays = (void *)eglGetProcAddress("glGenVertexArrays")))
+		die("required routine glGenVertexArrays not supported");
+
+	if (!(bindVertexArray = (void *)eglGetProcAddress("glBindVertexArray")))
+		die("required routine glBindVertexArray not supported");
 }
 
 static void
@@ -168,11 +236,8 @@ init_gl()
 		-1, -1, 0, 1, +1, -1, 1, 1, -1, +1, 0, 0, +1, +1, 1, 0
 	};
 
-	glDebugMessageCallback(handle_opengl_debug, NULL);
-	glEnable(GL_DEBUG_OUTPUT);
-
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	genVertexArrays(1, &vao);
+	bindVertexArray(vao);
 
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -241,115 +306,77 @@ update_size()
 	width = screen_width * CHARWIDTH;
 	height = screen_height * CHARHEIGHT;
 
-	if (display_width != width || display_height != height) {
-		display_width = width;
-		display_height = height;
-		glfwSetWindowSize(display, width, height);
+	if (window_width != width || window_height != height) {
+		window_width = width;
+		window_height = height;
+		// glfwSetWindowSize(display, width, height);
 		glViewport(0, 0, width, height);
 	}
 }
 
 static void
-handle_key(GLFWwindow *window UNUSED, int key, int scancode UNUSED, int action,
-	int mods)
+handle_key(XKeyEvent *event)
 {
-	if (action == GLFW_RELEASE || mode[TRANSMIT_DISABLED])
+	char buffer[32];
+	int bufsize;
+	KeySym keysym;
+
+	bufsize = XLookupString(event, buffer, sizeof(buffer), &keysym, NULL);
+
+	if (mode[TRANSMIT_DISABLED])
 		return;
 
-	if (!mode[DECARM] && action == GLFW_REPEAT)
-		return;
+	// TODO : mode[DECARM] - auto repeat mode
 
-	switch (key) {
-	case GLFW_KEY_ESCAPE: buffer_keys("\33"); return;
-	case GLFW_KEY_ENTER:
-	case GLFW_KEY_KP_ENTER:
-		buffer_keys(mode[LNM] ? "\r\n" : "\r");
-		return;
-	case GLFW_KEY_TAB: buffer_keys("\t"); return;
-	case GLFW_KEY_BACKSPACE: buffer_keys("\b"); return;
-	case GLFW_KEY_INSERT: buffer_keys("\33[2~"); return;
-	case GLFW_KEY_DELETE: buffer_keys("\177"); return;
-	case GLFW_KEY_PAGE_UP: buffer_keys("\33[5~"); return;
-	case GLFW_KEY_PAGE_DOWN: buffer_keys("\33[6~"); return;
-	case GLFW_KEY_HOME: buffer_keys("\33[1~"); return;
-	case GLFW_KEY_END: buffer_keys("\33[4~"); return;
-	case GLFW_KEY_F1: buffer_keys("\33OP"); return;
-	case GLFW_KEY_F2: buffer_keys("\33OQ"); return;
-	case GLFW_KEY_F3: buffer_keys("\33OR"); return;
-	case GLFW_KEY_F4: buffer_keys("\33OS"); return;
-	}
-
-	if (key >= GLFW_KEY_SPACE && key <= GLFW_KEY_GRAVE_ACCENT) {
-		if (mods & GLFW_MOD_CONTROL) {
-			key &= ~0x60;
-
-			if (mods & GLFW_MOD_SHIFT)
-				key ^= (key & 0x40) ? 0x20 : 0x10;
-
-			char buffer[2] = {key, 0};
-			buffer_keys(buffer);
-		}
+	if (bufsize > 0) {
+		if (bufsize == 1 && buffer[0] == '\r' && mode[LNM])
+			buffer_keys("\r\n");
+		else
+			write_ptmx((const unsigned char *)buffer, bufsize);
 
 		return;
 	}
 
-	if (key >= GLFW_KEY_RIGHT && key <= GLFW_KEY_UP) {
+	switch (keysym) {
+	case XK_Insert: buffer_keys("\33[2~"); return;
+	case XK_Page_Up: buffer_keys("\33[5~"); return;
+	case XK_Page_Down: buffer_keys("\33[6~"); return;
+	case XK_Home: buffer_keys("\33[1~"); return;
+	case XK_End: buffer_keys("\33[4~"); return;
+	case XK_F1: buffer_keys("\33OP"); return;
+	case XK_F2: buffer_keys("\33OQ"); return;
+	case XK_F3: buffer_keys("\33OR"); return;
+	case XK_F4: buffer_keys("\33OS"); return;
+	}
+
+	if (keysym >= XK_Left && keysym <= XK_Down) {
 		if (!mode[DECANM])
-			switch (key) {
-			case GLFW_KEY_UP: buffer_keys("\33A"); break;
-			case GLFW_KEY_DOWN: buffer_keys("\33B"); break;
-			case GLFW_KEY_RIGHT: buffer_keys("\33C"); break;
-			case GLFW_KEY_LEFT: buffer_keys("\33D"); break;
+			switch (keysym) {
+			case XK_Up: buffer_keys("\33A"); break;
+			case XK_Down: buffer_keys("\33B"); break;
+			case XK_Right: buffer_keys("\33C"); break;
+			case XK_Left: buffer_keys("\33D"); break;
 			}
 		else if (mode[DECCKM])
-			switch (key) {
-			case GLFW_KEY_UP: buffer_keys("\33OA"); break;
-			case GLFW_KEY_DOWN: buffer_keys("\33OB"); break;
-			case GLFW_KEY_RIGHT: buffer_keys("\33OC"); break;
-			case GLFW_KEY_LEFT: buffer_keys("\33OD"); break;
+			switch (keysym) {
+			case XK_Up: buffer_keys("\33OA"); break;
+			case XK_Down: buffer_keys("\33OB"); break;
+			case XK_Right: buffer_keys("\33OC"); break;
+			case XK_Left: buffer_keys("\33OD"); break;
 			}
 		else
-			switch (key) {
-			case GLFW_KEY_UP: buffer_keys("\33[A"); break;
-			case GLFW_KEY_DOWN: buffer_keys("\33[B"); break;
-			case GLFW_KEY_RIGHT: buffer_keys("\33[C"); break;
-			case GLFW_KEY_LEFT: buffer_keys("\33[D"); break;
+			switch (keysym) {
+			case XK_Up: buffer_keys("\33[A"); break;
+			case XK_Down: buffer_keys("\33[B"); break;
+			case XK_Right: buffer_keys("\33[C"); break;
+			case XK_Left: buffer_keys("\33[D"); break;
 			}
 
 		return;
 	}
 
-	// TODO : GLFW_KEY_UNKNOWN
 	// TODO : print screen, pause, f5-f25, menu (as SETUP)
 	// TODO : keypad application mode
-}
-
-static void
-handle_char(GLFWwindow *window UNUSED, unsigned int code_point)
-{
-	char buffer[5];
-
-	memset(buffer, 0, sizeof(buffer));
-
-	if (code_point <= 0x7F) {
-		buffer[0] = code_point;
-	} else if (code_point <= 0x7FF) {
-		buffer[0] = 0xC0 | (code_point >> 6);
-		buffer[1] = 0x80 | (code_point & 0x3F);
-	} else if (code_point <= 0xFFFF) {
-		buffer[0] = 0xE0 | (code_point >> 12);
-		buffer[1] = 0x80 | ((code_point >> 6) & 0x3F);
-		buffer[2] = 0x80 | (code_point & 0x3F);
-	} else if (code_point <= 0x10FFFF) {
-		buffer[0] = 0xF0 | (code_point >> 18);
-		buffer[1] = 0x80 | ((code_point >> 12) & 0x3F);
-		buffer[2] = 0x80 | ((code_point >> 6) & 0x3F);
-		buffer[3] = 0x80 | (code_point & 0x3F);
-	} else {
-		die("impossible code point");
-	}
-
-	buffer_keys(buffer);
 }
 
 static void
@@ -363,7 +390,7 @@ render()
 {
 	static const struct color white = {0xFF, 0xFF, 0xFF};
 
-	unsigned char buffer[display_width * display_height * 3];
+	unsigned char buffer[window_width * window_height * 3];
 	int x, y;
 
 	for (y = screen_height - 1; y >= 0; y--)
@@ -373,16 +400,16 @@ render()
 				y * CHARHEIGHT, lines[y]->dimensions,
 				&lines[y]->cells[x]);
 
-	if (mode[DECTCEM] && timer_count / 2 % 2)
+	if (mode[DECTCEM] && !(timer_count / 2 % 2))
 		render_glyph(buffer, white,
 			cursor.x * CHARWIDTH * (lines[cursor.y]->dimensions ? 2 : 1),
 			cursor.y * CHARHEIGHT, lines[cursor.y]->dimensions,
 			false, find_glyph(0x2588));
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, display_width, display_height, 0,
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0,
 		GL_RGB, GL_UNSIGNED_BYTE, buffer);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	glfwSwapBuffers(display);
+	eglSwapBuffers(egl_display, egl_surface);
 }
 
 static int
@@ -493,9 +520,9 @@ static void
 put_pixel(unsigned char *buffer, int x, int y, struct color color)
 {
 	size_t i;
-	if (x >= display_width) return;
-	if (y >= display_height) return;
-	i = (x + y * display_width) * 3;
+	if (x >= window_width) return;
+	if (y >= window_height) return;
+	i = (x + y * window_width) * 3;
 	buffer[i++] = color.r;
 	buffer[i++] = color.g;
 	buffer[i  ] = color.b;

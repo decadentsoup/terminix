@@ -48,7 +48,7 @@ static const char *fragment_shader =
 	"}\n";
 
 static Display *display;
-static Atom wm_delete_window;
+static Atom utf8_string, wm_delete_window, net_wm_name, net_wm_icon_name;
 static Window window;
 static int window_width, window_height, timer_count;
 static EGLDisplay egl_display;
@@ -141,15 +141,15 @@ get_time()
 void
 set_window_title(const char *title)
 {
-	// TODO : UTF-8
-	XStoreName(display, window, title);
+	XChangeProperty(display, window, net_wm_name, utf8_string, 8,
+		PropModeReplace, (const unsigned char *)title, strlen(title));
 }
 
 void
 set_icon_name(const char *name)
 {
-	// TODO : UTF-8
-	XSetIconName(display, window, name);
+	XChangeProperty(display, window, net_wm_icon_name, utf8_string, 8,
+		PropModeReplace, (const unsigned char *)name, strlen(name));
 }
 
 static void
@@ -170,7 +170,10 @@ init_x11()
 	if (!(display = XOpenDisplay(NULL)))
 		die("failed to connect to X server");
 
+	utf8_string = XInternAtom(display, "UTF8_STRING", false);
 	wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", false);
+	net_wm_name = XInternAtom(display, "_NET_WM_NAME", false);
+	net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", false);
 
 	window_width = screen_width * CHARWIDTH;
 	window_height = screen_height * CHARHEIGHT;

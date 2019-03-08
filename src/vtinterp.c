@@ -191,7 +191,7 @@ interpret(unsigned char byte)
 		break;
 	case STATE_OSC_STRING:
 		COND(byte == 0x07, osc_end(); NEXT(GROUND));
-		COND(byte >= 0x20 && byte <= 0x7F, osc_put(byte));
+		COND(byte >= 0x20, osc_put(byte));
 		break;
 	case STATE_SOS_STRING:
 	case STATE_PM_STRING:

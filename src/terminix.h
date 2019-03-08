@@ -28,7 +28,8 @@
 
 // --- user interface --- //
 
-void set_title(const char *);
+void set_window_title(const char *);
+void set_icon_name(const char *);
 
 // --- pseudoterminals --- //
 

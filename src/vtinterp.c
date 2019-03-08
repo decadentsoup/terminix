@@ -879,12 +879,12 @@ osc_end()
 	data = &osc[osc_data_offset];
 
 	if (OSC_IS("0")) {
-		set_title(data);
-		warnx("TODO : set icon name to %s", data);
+		set_window_title(data);
+		set_icon_name(data);
 	} else if (OSC_IS("1") || OSC_IS("2L")) {
-		warnx("TODO : set icon name to %s", data);
+		set_icon_name(data);
 	} else if (OSC_IS("2") || OSC_IS("21")) {
-		set_title(data);
+		set_window_title(data);
 	} else if (OSC_IS("3")) {
 		warnx("TODO : set X property to %s", data);
 	} else if (OSC_IS("4")) {

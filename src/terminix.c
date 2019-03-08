@@ -139,10 +139,17 @@ get_time()
 }
 
 void
-set_title(const char *title)
+set_window_title(const char *title)
 {
 	// TODO : UTF-8
 	XStoreName(display, window, title);
+}
+
+void
+set_icon_name(const char *name)
+{
+	// TODO : UTF-8
+	XSetIconName(display, window, name);
 }
 
 static void

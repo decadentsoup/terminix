@@ -229,9 +229,6 @@ init_egl()
 	if (!eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context))
 		die("failed to make EGL context current");
 
-	if (!eglSwapInterval(display, 1))
-		warnx("failed to enable vertical synchronization");
-
 	if (!(genVertexArrays = (void *)eglGetProcAddress("glGenVertexArrays")))
 		die("required routine glGenVertexArrays not supported");
 

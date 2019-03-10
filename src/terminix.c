@@ -209,7 +209,6 @@ init_x11()
 	XSetWMHints(display, window, hints);
 	// TODO : WM_CLASS
 	XSetWMProtocols(display, window, &wm_delete_window, 1);
-	// TODO : XSetWMClientMachine(...);
 	XMapWindow(display, window);
 
 	XFree(hints);

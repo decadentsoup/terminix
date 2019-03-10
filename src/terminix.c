@@ -38,6 +38,7 @@ static void init_x11(void);
 static void init_xkb(void);
 static void init_xim(void);
 static void handle_key(XKeyEvent *);
+static void kpam(char);
 
 int
 main(int argc, char **argv)
@@ -291,6 +292,63 @@ handle_key(XKeyEvent *event)
 	if (status == XLookupNone || mode[TRANSMIT_DISABLED] || (!mode[DECARM] && keystate[event->keycode]))
 		return;
 
+	if (status == XLookupKeySym || status == XLookupBoth) {
+		switch (keysym) {
+		case XK_Insert: ptwrite("\33[2~"); return;
+		case XK_Page_Up: ptwrite("\33[5~"); return;
+		case XK_Page_Down: ptwrite("\33[6~"); return;
+		case XK_Home: ptwrite("\33[1~"); return;
+		case XK_End: ptwrite("\33[4~"); return;
+		case XK_F1: ptwrite(mode[DECANM] ? "\33OP" : "\33P"); return;
+		case XK_F2: ptwrite(mode[DECANM] ? "\33OQ" : "\33Q"); return;
+		case XK_F3: ptwrite(mode[DECANM] ? "\33OR" : "\33R"); return;
+		case XK_F4: ptwrite(mode[DECANM] ? "\33OS" : "\33S"); return;
+		}
+
+		if (keysym >= XK_Left && keysym <= XK_Down) {
+			if (!mode[DECANM])
+				switch (keysym) {
+				case XK_Up: ptwrite("\33A"); break;
+				case XK_Down: ptwrite("\33B"); break;
+				case XK_Right: ptwrite("\33C"); break;
+				case XK_Left: ptwrite("\33D"); break;
+				}
+			else if (mode[DECCKM])
+				switch (keysym) {
+				case XK_Up: ptwrite("\33OA"); break;
+				case XK_Down: ptwrite("\33OB"); break;
+				case XK_Right: ptwrite("\33OC"); break;
+				case XK_Left: ptwrite("\33OD"); break;
+				}
+			else
+				switch (keysym) {
+				case XK_Up: ptwrite("\33[A"); break;
+				case XK_Down: ptwrite("\33[B"); break;
+				case XK_Right: ptwrite("\33[C"); break;
+				case XK_Left: ptwrite("\33[D"); break;
+				}
+
+			return;
+		}
+
+		if (mode[DECKPAM])
+			switch (keysym) {
+			case XK_KP_0: kpam('p'); return;
+			case XK_KP_1: kpam('q'); return;
+			case XK_KP_2: kpam('r'); return;
+			case XK_KP_3: kpam('s'); return;
+			case XK_KP_4: kpam('t'); return;
+			case XK_KP_5: kpam('u'); return;
+			case XK_KP_6: kpam('v'); return;
+			case XK_KP_7: kpam('w'); return;
+			case XK_KP_8: kpam('x'); return;
+			case XK_KP_9: kpam('y'); return;
+			case XK_KP_Subtract: kpam('m'); return;
+			case XK_KP_Separator: kpam('l'); return;
+			case XK_KP_Decimal: kpam('n'); return;
+			}
+	}
+
 	if (status == XLookupChars || status == XLookupBoth) {
 		buffer[bufsize] = 0;
 
@@ -302,49 +360,11 @@ handle_key(XKeyEvent *event)
 		return;
 	}
 
-	if (status != XLookupKeySym) {
-		warnx("Xutf8LookupString returned unrecognized status");
-		return;
-	}
-
-	switch (keysym) {
-	case XK_Insert: ptwrite("\33[2~"); return;
-	case XK_Page_Up: ptwrite("\33[5~"); return;
-	case XK_Page_Down: ptwrite("\33[6~"); return;
-	case XK_Home: ptwrite("\33[1~"); return;
-	case XK_End: ptwrite("\33[4~"); return;
-	case XK_F1: ptwrite("\33OP"); return;
-	case XK_F2: ptwrite("\33OQ"); return;
-	case XK_F3: ptwrite("\33OR"); return;
-	case XK_F4: ptwrite("\33OS"); return;
-	}
-
-	if (keysym >= XK_Left && keysym <= XK_Down) {
-		if (!mode[DECANM])
-			switch (keysym) {
-			case XK_Up: ptwrite("\33A"); break;
-			case XK_Down: ptwrite("\33B"); break;
-			case XK_Right: ptwrite("\33C"); break;
-			case XK_Left: ptwrite("\33D"); break;
-			}
-		else if (mode[DECCKM])
-			switch (keysym) {
-			case XK_Up: ptwrite("\33OA"); break;
-			case XK_Down: ptwrite("\33OB"); break;
-			case XK_Right: ptwrite("\33OC"); break;
-			case XK_Left: ptwrite("\33OD"); break;
-			}
-		else
-			switch (keysym) {
-			case XK_Up: ptwrite("\33[A"); break;
-			case XK_Down: ptwrite("\33[B"); break;
-			case XK_Right: ptwrite("\33[C"); break;
-			case XK_Left: ptwrite("\33[D"); break;
-			}
-
-		return;
-	}
-
 	// TODO : print screen, pause, f5-f25, menu (as SETUP)
-	// TODO : keypad application mode
+}
+
+static void
+kpam(char c)
+{
+	ptwrite("\33%c%c", mode[DECANM] ? 'O' : '?', c);
 }

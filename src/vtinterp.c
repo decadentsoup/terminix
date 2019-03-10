@@ -84,7 +84,10 @@ static void osc_start(void);
 static void osc_put(unsigned char);
 static void osc_end(void);
 static void change_color(const char *);
-static void parse_sharp_color(struct color *, const char *);
+static void parse_rgbhex(struct color *, const char *);
+static void parse_rgb(struct color *, const char *);
+static uint8_t parse_rgb_part(const char *);
+static void parse_rgbi(struct color *, const char *);
 
 void
 vtinterp(const unsigned char *buffer, size_t bufsize)
@@ -840,7 +843,7 @@ configure_leds()
 		}
 }
 
-#define OSC_IS(prefix) (strncmp(prefix ";", osc, sizeof(prefix)) == 0)
+#define OSC_IS(prefix) (!strncmp(prefix ";", osc, sizeof(prefix)))
 
 static void
 osc_start()
@@ -882,34 +885,54 @@ osc_end()
 	}
 }
 
+#define COLOR_IS(prefix) (!strncasecmp(prefix ":", color_name, sizeof(prefix)))
+
 static void
 change_color(const char *data)
 {
 	int color_index;
 	const char *color_name;
 
-	if (sscanf(data, "%d", &color_index) != 1 || color_index > 255)
+	if (sscanf(data, "%d", &color_index) != 1 || color_index < 0 || color_index > 255) {
+		warnx("Color index %i out of range (0..255)", color_index);
 		return;
+	}
 
-	if (!(color_name = strchr(data, ';')))
+	if (!(color_name = strchr(data, ';'))) {
+		warnx("Color index %i has malformed syntax", color_index);
 		return;
+	}
 
-	// TODO : support for rgb:, rgbi:, CIEXYZ:, CIEuvY:, CIExyY:, CIELab:,
-	// CIELuv:, TekHVC:, and named colors
-	if (color_name[1] == '#')
-		parse_sharp_color(&palette[color_index], &color_name[2]);
+	color_name++;
+
+	if (color_name[0] == '#')
+		parse_rgbhex(&palette[color_index], color_name);
+	else if (COLOR_IS("rgb"))
+		parse_rgb(&palette[color_index], color_name);
+	else if (COLOR_IS("rgbi"))
+		parse_rgbi(&palette[color_index], color_name);
+	else if (COLOR_IS("ciexyz"))
+		warnx("TODO : CIEXYZ Specification: %s", color_name);
+	else if (COLOR_IS("cieuvy"))
+		warnx("TODO : CIEuvY Specification: %s", color_name);
+	else if (COLOR_IS("ciexyy"))
+		warnx("TODO : CIExyY Specification: %s", color_name);
+	else if (COLOR_IS("cielab"))
+		warnx("TODO : CIELab Specification: %s", color_name);
+	else if (COLOR_IS("tekhvc"))
+		warnx("TODO : TekHVC Specification: %s", color_name);
 	else
-		warnx("unrecognized color format: %s", color_name);
+		warnx("TODO : Unknown Color (Named?): %s", color_name);
 }
 
 static void
-parse_sharp_color(struct color *colorp, const char *text)
+parse_rgbhex(struct color *colorp, const char *text)
 {
 	long long hex;
 
-	hex = strtoll(text, NULL, 16);
+	hex = strtoll(&text[1], NULL, 16);
 
-	switch (strlen(text)) {
+	switch (strlen(text) - 1) {
 	case 3:
 		colorp->r = (hex >> 8) * 0x10;
 		colorp->g = (hex >> 4 & 0xF) * 0x10;
@@ -930,5 +953,57 @@ parse_sharp_color(struct color *colorp, const char *text)
 		colorp->g = (hex >> 24 & 0xFF);
 		colorp->b = (hex >> 8 & 0xFF);
 		break;
+	default:
+		warnx("Invalid color specification: %s", text);
+		break;
 	}
+}
+
+static void
+parse_rgb(struct color *colorp, const char *text)
+{
+	char r[5], g[5], b[5];
+
+	if (sscanf(&text[4], "%4[^/]/%4[^/]/%4[^/]", r, g, b) != 3) {
+		warnx("Invalid color specification: %s", text);
+		return;
+	}
+
+	colorp->r = parse_rgb_part(r);
+	colorp->g = parse_rgb_part(g);
+	colorp->b = parse_rgb_part(b);
+}
+
+static uint8_t
+parse_rgb_part(const char *text)
+{
+	long hex;
+
+	hex = strtol(text, NULL, 16);
+
+	switch (strlen(text)) {
+	case 1: return hex * 0x10;
+	case 2: return hex;
+	case 3: return hex / 0x10;
+	case 4: return hex / 0x100;
+	}
+
+	warnx("Impossible condition met in parse_rgb_part()!");
+	return 0;
+}
+
+static void
+parse_rgbi(struct color *colorp, const char *text)
+{
+	float r, g, b;
+
+	if (sscanf(&text[5], "%f/%f/%f", &r, &g, &b) != 3 ||
+		r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
+		warnx("Invalid color specification: %s", text);
+		return;
+	}
+
+	colorp->r = r * 255;
+	colorp->g = g * 255;
+	colorp->b = b * 255;
 }

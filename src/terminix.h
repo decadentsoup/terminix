@@ -21,16 +21,28 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <EGL/eglplatform.h>
+
+#define CHARWIDTH 8
+#define CHARHEIGHT 16
+
 // --- error handling --- //
 
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
-// --- user interface --- //
+// --- window management --- //
 
+extern int window_width, window_height, timer_count;
 void set_window_title(const char *);
 void set_icon_name(const char *);
 void resize_window(void);
+
+// --- rendering --- //
+
+void init_renderer(EGLNativeDisplayType, EGLNativeWindowType);
+void deinit_renderer(void);
+void render(void);
 
 // --- pseudoterminals --- //
 

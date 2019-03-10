@@ -352,12 +352,14 @@ handle_key(XKeyEvent *event)
 	if (status == XLookupChars || status == XLookupBoth) {
 		buffer[bufsize] = 0;
 
-		if (bufsize == 1 && buffer[0] == '\r' && mode[LNM])
-			ptwrite("\r\n");
-		else
+		if (bufsize == 1 && buffer[0] == '\r') {
+			if (event->state & ShiftMask)
+				ptwrite("\n");
+			else
+				ptwrite(mode[LNM] ? "\r\n" : "\r");
+		} else {
 			ptwrite("%s", buffer);
-
-		return;
+		}
 	}
 
 	// TODO : print screen, pause, f5-f25, menu (as SETUP)

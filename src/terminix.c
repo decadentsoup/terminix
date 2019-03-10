@@ -23,6 +23,7 @@
 
 int window_width, window_height, timer_count;
 
+static char *instance_name;
 static Display *display;
 static Atom utf8_string, wm_delete_window, net_wm_name, net_wm_icon_name;
 static Window window;
@@ -30,6 +31,7 @@ static XIM xim;
 static XIC xic;
 static bool keystate[256];
 
+static void parse_command_line(int, char **);
 static uint64_t get_time(void);
 static void handle_exit(void);
 static void init_x11(void);
@@ -38,7 +40,7 @@ static void init_xim(void);
 static void handle_key(XKeyEvent *);
 
 int
-main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
+main(int argc, char **argv)
 {
 	uint64_t lasttick, currtime;
 	XEvent event;
@@ -49,6 +51,7 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 	if (!(setlocale(LC_ALL, "")))
 		warnx("failed to set locale");
 
+	parse_command_line(argc, argv);
 	resize(80, 24);
 	reset();
 	ptinit("/bin/bash");
@@ -102,6 +105,25 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 		ptpump();
 		render();
 	}
+}
+
+static void
+parse_command_line(int argc, char **argv)
+{
+	int i;
+
+	for (i = 1; i < argc; i++)
+		if (!strcmp(argv[i], "-name") && i < argc - 1)
+			instance_name = argv[++i];
+
+	if (!instance_name)
+		instance_name = getenv("RESOURCE_NAME");
+
+	if (!instance_name && (instance_name = strrchr(argv[0], '/')))
+		instance_name++;
+
+	if (!instance_name)
+		instance_name = argv[0];
 }
 
 static uint64_t
@@ -162,6 +184,7 @@ init_x11()
 	XSetWindowAttributes attrs;
 	XSizeHints *normal_hints;
 	XWMHints *hints;
+	XClassHint *class_hint;
 
 	if (!(display = XOpenDisplay(NULL)))
 		die("failed to connect to X server");
@@ -185,6 +208,12 @@ init_x11()
 		pdie("failed to allocate XWMHints");
 	}
 
+	if (!(class_hint = XAllocClassHint())) {
+		XFree(normal_hints);
+		XFree(hints);
+		pdie("failed to allocate XClassHint");
+	}
+
 	normal_hints->flags = PMinSize|PMaxSize;
 	normal_hints->min_width = window_width;
 	normal_hints->min_height = window_height;
@@ -195,16 +224,20 @@ init_x11()
 	hints->input = true;
 	hints->initial_state = NormalState;
 
+	class_hint->res_name = instance_name;
+	class_hint->res_class = "Terminix";
+
 	XStoreName(display, window, "Terminix");
 	XSetIconName(display, window, "Terminix");
 	XSetWMNormalHints(display, window, normal_hints);
 	XSetWMHints(display, window, hints);
-	// TODO : WM_CLASS
+	XSetClassHint(display, window, class_hint);
 	XSetWMProtocols(display, window, &wm_delete_window, 1);
 	XMapWindow(display, window);
 
 	XFree(hints);
 	XFree(normal_hints);
+	XFree(class_hint);
 }
 
 static void

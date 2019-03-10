@@ -220,6 +220,7 @@ init_xkb()
 			"DECARM may not work correctly");
 }
 
+// TODO : XRegisterIMInstantiateCallback, XOpenIM's optional parameters
 static void
 init_xim()
 {

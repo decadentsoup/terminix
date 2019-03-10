@@ -37,6 +37,7 @@ extern int window_width, window_height, timer_count;
 void set_window_title(const char *);
 void set_icon_name(const char *);
 void resize_window(void);
+void ring_bell(void);
 
 // --- rendering --- //
 

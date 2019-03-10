@@ -139,6 +139,12 @@ resize_window()
 		XResizeWindow(display, window, window_width, window_height);
 }
 
+void
+ring_bell()
+{
+	XBell(display, 0);
+}
+
 static void
 handle_exit()
 {

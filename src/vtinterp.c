@@ -329,7 +329,7 @@ execute(unsigned char byte)
 		warnx("TODO : Enquiry");
 		break;
 	case 0x07: // Bell
-		warnx("TODO : Bell");
+		ring_bell();
 		break;
 	case 0x08: // Backspace
 		if (cursor.x > 0) {

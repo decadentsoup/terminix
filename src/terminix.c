@@ -295,7 +295,10 @@ handle_key(XKeyEvent *event)
 	if (status == XLookupKeySym || status == XLookupBoth) {
 		switch (keysym) {
 		case XK_Pause:
-			ptwrite((mode[PAUSED] = !mode[PAUSED]) ? "\x13" : "\x11");
+			if (event->state & ShiftMask)
+				warnx("transmit answerback");
+			else
+				ptwrite((mode[PAUSED] = !mode[PAUSED]) ? "\x13" : "\x11");
 			return;
 		case XK_Break: ptbreak(event->state & ShiftMask); break;
 		case XK_Home: ptwrite("\33[1~"); return;

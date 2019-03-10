@@ -16,8 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
+#include <X11/XKBlib.h>
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 #include "terminix.h"
@@ -51,6 +50,7 @@ static Display *display;
 static Atom utf8_string, wm_delete_window, net_wm_name, net_wm_icon_name;
 static Window window;
 static int window_width, window_height, timer_count;
+static bool keystate[256];
 static EGLDisplay egl_display;
 static EGLContext egl_context;
 static EGLSurface egl_surface;
@@ -62,6 +62,7 @@ static void (*bindVertexArray)(GLuint);
 static uint64_t get_time(void);
 static void handle_exit(void);
 static void init_x11(void);
+static void init_xkb(void);
 static void init_egl(void);
 static void init_gl(void);
 static void init_shaders(void);
@@ -86,6 +87,7 @@ main(int argc UNUSED, char **argv UNUSED)
 	reset();
 	ptinit("/bin/bash");
 	init_x11();
+	init_xkb();
 	init_egl();
 	init_gl();
 	init_shaders();
@@ -103,6 +105,10 @@ main(int argc UNUSED, char **argv UNUSED)
 			switch (event.type) {
 			case KeyPress:
 				handle_key(&event.xkey);
+				keystate[event.xkey.keycode] = true;
+				break;
+			case KeyRelease:
+				keystate[event.xkey.keycode] = false;
 				break;
 			case ClientMessage:
 				if ((Atom)event.xclient.data.l[0] == wm_delete_window)
@@ -185,7 +191,7 @@ init_x11()
 	net_wm_name = XInternAtom(display, "_NET_WM_NAME", false);
 	net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", false);
 
-	attrs.event_mask = KeyPressMask;
+	attrs.event_mask = KeyPressMask|KeyReleaseMask;
 
 	window = XCreateWindow(display, DefaultRootWindow(display), 0, 0,
 		window_width, window_height, 0, CopyFromParent, InputOutput,
@@ -219,6 +225,25 @@ init_x11()
 
 	XFree(hints);
 	XFree(normal_hints);
+}
+
+static void
+init_xkb()
+{
+	int major, minor;
+
+	major = XkbMajorVersion;
+	minor = XkbMinorVersion;
+
+	if (!XkbLibraryVersion(&major, &minor))
+		warnx("runtime XKB is incompatible with compile-time XKB; "
+			"DECARM may not work correctly");
+	if (!XkbQueryExtension(display, NULL, NULL, NULL, &major, &minor))
+		warnx("X server does not support XKB extension; "
+			"DECARM may not work correctly");
+	else if (!XkbSetDetectableAutoRepeat(display, true, NULL))
+		warnx("failed to set detectable autorepeat; "
+			"DECARM may not work correctly");
 }
 
 static void
@@ -337,10 +362,8 @@ handle_key(XKeyEvent *event)
 	bufsize = XLookupString(event, buffer, sizeof(buffer) - 1, &keysym, NULL);
 	buffer[bufsize] = 0;
 
-	if (mode[TRANSMIT_DISABLED])
+	if (mode[TRANSMIT_DISABLED] || (!mode[DECARM] && keystate[event->keycode]))
 		return;
-
-	// TODO : mode[DECARM] - auto repeat mode
 
 	if (bufsize > 0) {
 		if (bufsize == 1 && buffer[0] == '\r' && mode[LNM])

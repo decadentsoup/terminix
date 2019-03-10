@@ -294,11 +294,11 @@ handle_key(XKeyEvent *event)
 
 	if (status == XLookupKeySym || status == XLookupBoth) {
 		switch (keysym) {
+		case XK_Home: ptwrite("\33[1~"); return;
 		case XK_Insert: ptwrite("\33[2~"); return;
+		case XK_End: ptwrite("\33[4~"); return;
 		case XK_Page_Up: ptwrite("\33[5~"); return;
 		case XK_Page_Down: ptwrite("\33[6~"); return;
-		case XK_Home: ptwrite("\33[1~"); return;
-		case XK_End: ptwrite("\33[4~"); return;
 		case XK_F1: ptwrite(mode[DECANM] ? "\33OP" : "\33P"); return;
 		case XK_F2: ptwrite(mode[DECANM] ? "\33OQ" : "\33Q"); return;
 		case XK_F3: ptwrite(mode[DECANM] ? "\33OR" : "\33R"); return;
@@ -362,7 +362,7 @@ handle_key(XKeyEvent *event)
 		}
 	}
 
-	// TODO : print screen, pause, f5-f25, menu (as SETUP)
+	// TODO : print screen, XK_PAUSE, XK_BREAK, f5-f25, menu (as SETUP)
 }
 
 static void

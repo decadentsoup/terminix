@@ -296,11 +296,13 @@ handle_key(XKeyEvent *event)
 		switch (keysym) {
 		case XK_Pause:
 			if (event->state & ShiftMask)
-				warnx("transmit answerback");
+				warnx("TODO : transmit answerback");
 			else
 				ptwrite((mode[PAUSED] = !mode[PAUSED]) ? "\x13" : "\x11");
 			return;
 		case XK_Break: ptbreak(event->state & ShiftMask); break;
+		case XK_Print: warnx("TODO : print screen"); break;
+		case XK_Menu: warnx("TODO : SETUP"); break;
 		case XK_Home: ptwrite("\33[1~"); return;
 		case XK_Insert: ptwrite("\33[2~"); return;
 		case XK_End: ptwrite("\33[4~"); return;
@@ -310,6 +312,7 @@ handle_key(XKeyEvent *event)
 		case XK_F2: ptwrite(mode[DECANM] ? "\33OQ" : "\33Q"); return;
 		case XK_F3: ptwrite(mode[DECANM] ? "\33OR" : "\33R"); return;
 		case XK_F4: ptwrite(mode[DECANM] ? "\33OS" : "\33S"); return;
+		// TODO : the rest of the function keys
 		}
 
 		if (keysym >= XK_Left && keysym <= XK_Down) {
@@ -368,8 +371,6 @@ handle_key(XKeyEvent *event)
 			ptwrite("%s", buffer);
 		}
 	}
-
-	// TODO : print screen, f5-f25, menu (as SETUP)
 }
 
 static void

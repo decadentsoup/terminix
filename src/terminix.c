@@ -155,8 +155,8 @@ set_icon_name(const char *name)
 static void
 handle_exit()
 {
-	XCloseDisplay(display);
-	eglTerminate(egl_display);
+	if (display) XCloseDisplay(display);
+	if (egl_display) eglTerminate(egl_display);
 	deinit_ptmx();
 	deinit_screen();
 }

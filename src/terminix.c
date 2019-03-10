@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#include <locale.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -25,12 +26,15 @@ int window_width, window_height, timer_count;
 static Display *display;
 static Atom utf8_string, wm_delete_window, net_wm_name, net_wm_icon_name;
 static Window window;
+static XIM xim;
+static XIC xic;
 static bool keystate[256];
 
 static uint64_t get_time(void);
 static void handle_exit(void);
 static void init_x11(void);
 static void init_xkb(void);
+static void init_xim(void);
 static void handle_key(XKeyEvent *);
 
 int
@@ -42,11 +46,15 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 	if (atexit(handle_exit))
 		pdie("failed to register exit callback");
 
+	if (!(setlocale(LC_ALL, "")))
+		warnx("failed to set locale");
+
 	resize(80, 24);
 	reset();
 	ptinit("/bin/bash");
 	init_x11();
 	init_xkb();
+	init_xim();
 	init_renderer(display, window);
 	lasttick = 0;
 
@@ -59,6 +67,9 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 		while (XPending(display)) {
 			XNextEvent(display, &event);
 
+			if (XFilterEvent(&event, None))
+				continue;
+
 			switch (event.type) {
 			case KeyPress:
 				handle_key(&event.xkey);
@@ -66,6 +77,12 @@ main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 				break;
 			case KeyRelease:
 				keystate[event.xkey.keycode] = false;
+				break;
+			case FocusIn:
+				XSetICFocus(xic);
+				break;
+			case FocusOut:
+				XUnsetICFocus(xic);
 				break;
 			case ClientMessage:
 				if ((Atom)event.xclient.data.l[0] == wm_delete_window)
@@ -125,6 +142,8 @@ resize_window()
 static void
 handle_exit()
 {
+	if (xic) XDestroyIC(xic);
+	if (xim) XCloseIM(xim);
 	if (display) XCloseDisplay(display);
 	deinit_renderer();
 	ptkill();
@@ -146,7 +165,7 @@ init_x11()
 	net_wm_name = XInternAtom(display, "_NET_WM_NAME", false);
 	net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", false);
 
-	attrs.event_mask = KeyPressMask|KeyReleaseMask;
+	attrs.event_mask = KeyPressMask|KeyReleaseMask|FocusChangeMask;
 
 	window = XCreateWindow(display, DefaultRootWindow(display), 0, 0,
 		window_width, window_height, 0, CopyFromParent, InputOutput,
@@ -202,24 +221,49 @@ init_xkb()
 }
 
 static void
+init_xim()
+{
+	if (!XSetLocaleModifiers(""))
+		warnx("failed to set Xlib's locale modifiers");
+
+	if (!(xim = XOpenIM(display, NULL, NULL, NULL)))
+		die("failed to open X Input Method");
+
+	if (!(xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing|XIMStatusNothing, XNClientWindow, window, NULL)))
+		die("failed to create input method context");
+}
+
+static void
 handle_key(XKeyEvent *event)
 {
 	char buffer[32];
 	int bufsize;
 	KeySym keysym;
+	Status status;
 
-	bufsize = XLookupString(event, buffer, sizeof(buffer) - 1, &keysym, NULL);
-	buffer[bufsize] = 0;
+	bufsize = Xutf8LookupString(xic, event, buffer, sizeof(buffer) - 1, &keysym, &status);
 
-	if (mode[TRANSMIT_DISABLED] || (!mode[DECARM] && keystate[event->keycode]))
+	if (status == XBufferOverflow) {
+		warnx("buffer overflow in Xutf8LookupString");
+		return;
+	}
+
+	if (status == XLookupNone || mode[TRANSMIT_DISABLED] || (!mode[DECARM] && keystate[event->keycode]))
 		return;
 
-	if (bufsize > 0) {
+	if (status == XLookupChars || status == XLookupBoth) {
+		buffer[bufsize] = 0;
+
 		if (bufsize == 1 && buffer[0] == '\r' && mode[LNM])
 			ptwrite("\r\n");
 		else
 			ptwrite("%s", buffer);
 
+		return;
+	}
+
+	if (status != XLookupKeySym) {
+		warnx("Xutf8LookupString returned unrecognized status");
 		return;
 	}
 

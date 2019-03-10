@@ -110,6 +110,12 @@ ptkill()
 }
 
 void
+ptbreak(bool shift)
+{
+	warnx("TODO : BREAK for %s seconds +/- 10%%", shift ? "3.5" : "0.2333");
+}
+
+void
 ptwrite(const char *format, ...)
 {
 	va_list args;

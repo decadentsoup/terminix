@@ -68,7 +68,6 @@ static void init_shaders(void);
 static GLuint compile_shader(GLenum, const char *);
 static void update_size(void);
 static void handle_key(XKeyEvent *);
-static void buffer_keys(const char *);
 static void render(void);
 static int render_cell(unsigned char *, int, int, char, struct cell *);
 static void render_glyph(unsigned char *, struct color, int, int, char, bool,
@@ -86,7 +85,7 @@ main(int argc UNUSED, char **argv UNUSED)
 
 	resize(80, 24);
 	reset();
-	init_ptmx("/bin/bash");
+	ptinit("/bin/bash");
 	init_x11();
 	init_egl();
 	init_gl();
@@ -121,7 +120,7 @@ main(int argc UNUSED, char **argv UNUSED)
 			}
 		}
 
-		pump_ptmx();
+		ptpump();
 		update_size();
 		render();
 	}
@@ -157,7 +156,7 @@ handle_exit()
 {
 	if (display) XCloseDisplay(display);
 	if (egl_display) eglTerminate(egl_display);
-	deinit_ptmx();
+	ptkill();
 	deinit_screen();
 }
 
@@ -344,7 +343,8 @@ handle_key(XKeyEvent *event)
 	int bufsize;
 	KeySym keysym;
 
-	bufsize = XLookupString(event, buffer, sizeof(buffer), &keysym, NULL);
+	bufsize = XLookupString(event, buffer, sizeof(buffer) - 1, &keysym, NULL);
+	buffer[bufsize] = 0;
 
 	if (mode[TRANSMIT_DISABLED])
 		return;
@@ -353,46 +353,46 @@ handle_key(XKeyEvent *event)
 
 	if (bufsize > 0) {
 		if (bufsize == 1 && buffer[0] == '\r' && mode[LNM])
-			buffer_keys("\r\n");
+			ptwrite("\r\n");
 		else
-			write_ptmx((const unsigned char *)buffer, bufsize);
+			ptwrite("%s", buffer);
 
 		return;
 	}
 
 	switch (keysym) {
-	case XK_Insert: buffer_keys("\33[2~"); return;
-	case XK_Page_Up: buffer_keys("\33[5~"); return;
-	case XK_Page_Down: buffer_keys("\33[6~"); return;
-	case XK_Home: buffer_keys("\33[1~"); return;
-	case XK_End: buffer_keys("\33[4~"); return;
-	case XK_F1: buffer_keys("\33OP"); return;
-	case XK_F2: buffer_keys("\33OQ"); return;
-	case XK_F3: buffer_keys("\33OR"); return;
-	case XK_F4: buffer_keys("\33OS"); return;
+	case XK_Insert: ptwrite("\33[2~"); return;
+	case XK_Page_Up: ptwrite("\33[5~"); return;
+	case XK_Page_Down: ptwrite("\33[6~"); return;
+	case XK_Home: ptwrite("\33[1~"); return;
+	case XK_End: ptwrite("\33[4~"); return;
+	case XK_F1: ptwrite("\33OP"); return;
+	case XK_F2: ptwrite("\33OQ"); return;
+	case XK_F3: ptwrite("\33OR"); return;
+	case XK_F4: ptwrite("\33OS"); return;
 	}
 
 	if (keysym >= XK_Left && keysym <= XK_Down) {
 		if (!mode[DECANM])
 			switch (keysym) {
-			case XK_Up: buffer_keys("\33A"); break;
-			case XK_Down: buffer_keys("\33B"); break;
-			case XK_Right: buffer_keys("\33C"); break;
-			case XK_Left: buffer_keys("\33D"); break;
+			case XK_Up: ptwrite("\33A"); break;
+			case XK_Down: ptwrite("\33B"); break;
+			case XK_Right: ptwrite("\33C"); break;
+			case XK_Left: ptwrite("\33D"); break;
 			}
 		else if (mode[DECCKM])
 			switch (keysym) {
-			case XK_Up: buffer_keys("\33OA"); break;
-			case XK_Down: buffer_keys("\33OB"); break;
-			case XK_Right: buffer_keys("\33OC"); break;
-			case XK_Left: buffer_keys("\33OD"); break;
+			case XK_Up: ptwrite("\33OA"); break;
+			case XK_Down: ptwrite("\33OB"); break;
+			case XK_Right: ptwrite("\33OC"); break;
+			case XK_Left: ptwrite("\33OD"); break;
 			}
 		else
 			switch (keysym) {
-			case XK_Up: buffer_keys("\33[A"); break;
-			case XK_Down: buffer_keys("\33[B"); break;
-			case XK_Right: buffer_keys("\33[C"); break;
-			case XK_Left: buffer_keys("\33[D"); break;
+			case XK_Up: ptwrite("\33[A"); break;
+			case XK_Down: ptwrite("\33[B"); break;
+			case XK_Right: ptwrite("\33[C"); break;
+			case XK_Left: ptwrite("\33[D"); break;
 			}
 
 		return;
@@ -400,12 +400,6 @@ handle_key(XKeyEvent *event)
 
 	// TODO : print screen, pause, f5-f25, menu (as SETUP)
 	// TODO : keypad application mode
-}
-
-static void
-buffer_keys(const char *text)
-{
-	write_ptmx((const unsigned char *)text, strlen(text));
 }
 
 static void

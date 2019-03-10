@@ -13,11 +13,13 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#define _DEFAULT_SOURCE
-#define _XOPEN_SOURCE 600
+#define _XOPEN_SOURCE 600 // pseudoterminals
+#define _GNU_SOURCE // vasprintf
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -35,7 +37,7 @@ static void read_ptmx(void);
 static void flush_ptmx(void);
 
 void
-init_ptmx(const char *shell)
+ptinit(const char *shell)
 {
 	const char *pts;
 
@@ -101,51 +103,39 @@ init_child(const char *pts, const char *shell)
 }
 
 void
-deinit_ptmx()
+ptkill()
 {
 	if (ptmx >= 0 && close(ptmx))
 		warn("failed to close parent pseudoterminal");
 }
 
 void
-write_ptmx_num(unsigned int num)
+ptwrite(const char *format, ...)
 {
-	unsigned char buffer[5];
-	int i;
+	va_list args;
+	char *buffer;
+	int i, bufsize;
 
-	if (num > 65535)
-		die("tried to write a number that's too big");
+	va_start(args, format);
 
-	if (num) {
-		for (i = sizeof(buffer) - 1; num; num /= 10) {
-			buffer[i--] = 0x30 + num % 10;
-		}
+	if ((bufsize = vasprintf(&buffer, format, args)) == -1)
+		pdie("failed to format string");
 
-		i++;
-	} else {
-		buffer[i = sizeof(buffer) - 1] = 0x30;
+	va_end(args);
+
+	if ((size_t)bufsize <= sizeof(write_buffer) - write_buffer_size) {
+		for (i = 0; i < bufsize; i++)
+			write_buffer[write_buffer_size++] = buffer[i];
+
+		if (write_buffer_size > 0)
+			flush_ptmx();
 	}
 
-	write_ptmx(&buffer[i], sizeof(buffer) - i);
+	free(buffer);
 }
 
 void
-write_ptmx(const unsigned char *buffer, size_t bufsize)
-{
-	size_t i;
-
-	if (bufsize > sizeof(write_buffer) - write_buffer_size)
-		return; // not enough room
-
-	for (i = 0; i < bufsize; i++)
-		write_buffer[write_buffer_size++] = buffer[i];
-
-	if (write_buffer_size > 0)
-		flush_ptmx();
-}
-
-void
-pump_ptmx()
+ptpump()
 {
 	struct pollfd pfd;
 	bool loop;

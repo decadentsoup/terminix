@@ -33,11 +33,10 @@ void set_icon_name(const char *);
 
 // --- pseudoterminals --- //
 
-void init_ptmx(const char *);
-void deinit_ptmx(void);
-void write_ptmx_num(unsigned int);
-void write_ptmx(const unsigned char *, size_t);
-void pump_ptmx(void);
+void ptinit(const char *);
+void ptkill(void);
+void ptwrite(const char *, ...) __attribute__((__format__(printf, 1, 2)));
+void ptpump(void);
 
 // --- escape codes --- //
 

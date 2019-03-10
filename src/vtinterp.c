@@ -58,8 +58,7 @@ static size_t osc_size, osc_data_offset;
 static enum state52 state52;
 
 // VT100 with Processor Option, Advanced Video Option, and Graphics Option
-static const unsigned char DEVICE_ATTRS[] =
-	{ 0x1B, 0x5B, 0x3F, 0x31, 0x3B, 0x37, 0x63 };
+static const char DEVICE_ATTRS[] = "\x1B\x5B\x3F\x31\x3B\x37\x63";
 
 static void interpret(unsigned char);
 static void interpret52(unsigned char);
@@ -244,7 +243,7 @@ interpret52(unsigned char byte)
 			state52 = STATE52_DCA1;
 			break;
 		case 'Z':
-			write_ptmx((unsigned char *)"\33/Z", 3);
+			ptwrite("\33/Z");
 			break;
 		case '=':
 			mode[DECKPAM] = true;
@@ -438,7 +437,7 @@ esc_dispatch(unsigned char byte)
 		revline();
 		break;
 	case 0x5A: // Z - DECID - Identify Terminal
-		write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
+		ptwrite("%s", DEVICE_ATTRS);
 		break;
 	case 0x5C: // \ - ST - String Terminator
 		break; // nothing to do
@@ -544,7 +543,7 @@ csi_dispatch(unsigned char byte)
 		break;
 	case 0x63: // c - DA - Device Attributes
 		if (parameters[0] == 0)
-			write_ptmx(DEVICE_ATTRS, sizeof(DEVICE_ATTRS));
+			ptwrite("%s", DEVICE_ATTRS);
 		break;
 	case 0x67: // g - TBC - Tabulation Clear
 		if (!parameters[0])
@@ -816,23 +815,14 @@ select_graphic_rendition()
 static void
 device_status_report()
 {
-	// VT100 Ready, No malfunctions detected
-	static const unsigned char DEVICE_STATUS[] = { 0x1B, 0x5B, 0x30, 0x6E };
-
-	// Cursor Position Report
-	static const unsigned char CPR_START[] = { 0x1B, 0x5B };
-	static const unsigned char CPR_MIDDLE[] = { 0x3B };
-	static const unsigned char CPR_END[] = { 0x52 };
-
-	if (parameters[0] == 5) {
-		write_ptmx(DEVICE_STATUS, sizeof(DEVICE_STATUS));
-	} else if (parameters[0] == 6) {
-		write_ptmx(CPR_START, sizeof(CPR_START));
-		write_ptmx_num((mode[DECOM] ? cursor.y - scroll_top : cursor.y) + 1);
-		write_ptmx(CPR_MIDDLE, sizeof(CPR_MIDDLE));
-		write_ptmx_num(cursor.x + 1);
-		write_ptmx(CPR_END, sizeof(CPR_END));
-	}
+	if (parameters[0] == 5)
+		// VT100 Ready, No malfunctions detected
+		ptwrite("\x1B\x5B\x30\x6E");
+	else if (parameters[0] == 6)
+		// Cursor Position Report
+		ptwrite("\x1B\x5B%d\x3B%d\x52",
+			(mode[DECOM] ? cursor.y - scroll_top : cursor.y) + 1,
+			cursor.x + 1);
 }
 
 static void

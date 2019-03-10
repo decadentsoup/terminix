@@ -166,6 +166,7 @@ init_x11()
 {
 	XSetWindowAttributes attrs;
 	XSizeHints *normal_hints;
+	XWMHints *hints;
 
 	if (!(display = XOpenDisplay(NULL)))
 		die("failed to connect to X server");
@@ -187,20 +188,31 @@ init_x11()
 	if (!(normal_hints = XAllocSizeHints()))
 		pdie("failed to allocate XSizeHints");
 
+	if (!(hints = XAllocWMHints())) {
+		XFree(normal_hints);
+		pdie("failed to allocate XWMHints");
+	}
+
 	normal_hints->flags = PMinSize|PMaxSize;
 	normal_hints->min_width = window_width;
 	normal_hints->min_height = window_height;
 	normal_hints->max_width = window_width;
 	normal_hints->max_height = window_height;
 
+	hints->flags = InputHint|StateHint;
+	hints->input = true;
+	hints->initial_state = NormalState;
+
 	XStoreName(display, window, "Terminix");
 	XSetIconName(display, window, "Terminix");
 	XSetWMNormalHints(display, window, normal_hints);
-	// TODO : WM_HINTS, WM_CLASS
+	XSetWMHints(display, window, hints);
+	// TODO : WM_CLASS
 	XSetWMProtocols(display, window, &wm_delete_window, 1);
 	// TODO : XSetWMClientMachine(...);
 	XMapWindow(display, window);
 
+	XFree(hints);
 	XFree(normal_hints);
 }
 

@@ -294,6 +294,9 @@ handle_key(XKeyEvent *event)
 
 	if (status == XLookupKeySym || status == XLookupBoth) {
 		switch (keysym) {
+		case XK_Pause:
+			ptwrite((mode[PAUSED] = !mode[PAUSED]) ? "\x13" : "\x11");
+			return;
 		case XK_Home: ptwrite("\33[1~"); return;
 		case XK_Insert: ptwrite("\33[2~"); return;
 		case XK_End: ptwrite("\33[4~"); return;
@@ -362,7 +365,7 @@ handle_key(XKeyEvent *event)
 		}
 	}
 
-	// TODO : print screen, XK_PAUSE, XK_BREAK, f5-f25, menu (as SETUP)
+	// TODO : print screen, XK_BREAK, f5-f25, menu (as SETUP)
 }
 
 static void

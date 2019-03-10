@@ -66,7 +66,6 @@ static void init_egl(void);
 static void init_gl(void);
 static void init_shaders(void);
 static GLuint compile_shader(GLenum, const char *);
-static void update_size(void);
 static void handle_key(XKeyEvent *);
 static void render(void);
 static int render_cell(unsigned char *, int, int, char, struct cell *);
@@ -121,7 +120,6 @@ main(int argc UNUSED, char **argv UNUSED)
 		}
 
 		ptpump();
-		update_size();
 		render();
 	}
 }
@@ -151,6 +149,18 @@ set_icon_name(const char *name)
 		PropModeReplace, (const unsigned char *)name, strlen(name));
 }
 
+void
+resize_window()
+{
+	window_width = screen_width * CHARWIDTH;
+	window_height = screen_height * CHARHEIGHT;
+
+	if (display) {
+		XResizeWindow(display, window, window_width, window_height);
+		glViewport(0, 0, window_width, window_height);
+	}
+}
+
 static void
 handle_exit()
 {
@@ -174,9 +184,6 @@ init_x11()
 	wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", false);
 	net_wm_name = XInternAtom(display, "_NET_WM_NAME", false);
 	net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", false);
-
-	window_width = screen_width * CHARWIDTH;
-	window_height = screen_height * CHARHEIGHT;
 
 	attrs.event_mask = KeyPressMask;
 
@@ -318,22 +325,6 @@ compile_shader(GLenum type, const char *source)
 		die("failed to compile shader");
 
 	return shader;
-}
-
-static void
-update_size()
-{
-	int width, height;
-
-	width = screen_width * CHARWIDTH;
-	height = screen_height * CHARHEIGHT;
-
-	if (window_width != width || window_height != height) {
-		window_width = width;
-		window_height = height;
-		// glfwSetWindowSize(display, width, height);
-		glViewport(0, 0, width, height);
-	}
 }
 
 static void

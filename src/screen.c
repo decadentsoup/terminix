@@ -168,6 +168,8 @@ resize(int width, int height)
 	scroll_bottom = height - 1;
 	cursor.x = 0;
 	cursor.y = 0;
+
+	resize_window();
 }
 
 void

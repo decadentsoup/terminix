@@ -434,6 +434,10 @@ esc_dispatch(unsigned char byte)
 		cursor.x = 0;
 		newline();
 		break;
+	case 0x46: // F - XTerm*hpLowerleftBugCompat
+		cursor.x = 0;
+		cursor.y = scroll_bottom;
+		break;
 	case 0x48: // H - HTS - Horizontal Tabulation Set
 		tabstops[cursor.x] = true;
 		break;

@@ -83,7 +83,8 @@ static void select_graphic_rendition(void);
 static void osc_start(void);
 static void osc_put(unsigned char);
 static void osc_end(void);
-static void change_color(const char *);
+static void change_colors(const char *);
+static void change_color(int, const char *);
 static void parse_rgbhex(struct color *, const char *);
 static void parse_rgb(struct color *, const char *);
 static uint8_t parse_rgb_part(const char *);
@@ -881,48 +882,51 @@ osc_end()
 	} else if (OSC_IS("3")) {
 		warnx("TODO : set X property to %s", data);
 	} else if (OSC_IS("4")) {
-		change_color(data);
+		change_colors(data);
 	}
 }
 
-#define COLOR_IS(prefix) (!strncasecmp(prefix ":", color_name, sizeof(prefix)))
+static void
+change_colors(const char *data)
+{
+	char name[100];
+	int index, offset;
+
+	while (sscanf(data, "%d;%99[^;]%n", &index, name, &offset) == 2 ||
+		sscanf(data, ";%d;%99[^;]%n", &index, name, &offset) == 2) {
+		change_color(index, name);
+		data += offset;
+	}
+}
+
+#define COLOR_IS(prefix) (!strncasecmp(prefix ":", name, sizeof(prefix)))
 
 static void
-change_color(const char *data)
+change_color(int index, const char *name)
 {
-	int color_index;
-	const char *color_name;
-
-	if (sscanf(data, "%d", &color_index) != 1 || color_index < 0 || color_index > 255) {
-		warnx("Color index %i out of range (0..255)", color_index);
+	if (index < 0 || index > 255) {
+		warnx("Color index %i out of range (0..255)", index);
 		return;
 	}
 
-	if (!(color_name = strchr(data, ';'))) {
-		warnx("Color index %i has malformed syntax", color_index);
-		return;
-	}
-
-	color_name++;
-
-	if (color_name[0] == '#')
-		parse_rgbhex(&palette[color_index], color_name);
+	if (name[0] == '#')
+		parse_rgbhex(&palette[index], name);
 	else if (COLOR_IS("rgb"))
-		parse_rgb(&palette[color_index], color_name);
+		parse_rgb(&palette[index], name);
 	else if (COLOR_IS("rgbi"))
-		parse_rgbi(&palette[color_index], color_name);
+		parse_rgbi(&palette[index], name);
 	else if (COLOR_IS("ciexyz"))
-		warnx("TODO : CIEXYZ Specification: %s", color_name);
+		warnx("TODO : CIEXYZ Specification: %s", name);
 	else if (COLOR_IS("cieuvy"))
-		warnx("TODO : CIEuvY Specification: %s", color_name);
+		warnx("TODO : CIEuvY Specification: %s", name);
 	else if (COLOR_IS("ciexyy"))
-		warnx("TODO : CIExyY Specification: %s", color_name);
+		warnx("TODO : CIExyY Specification: %s", name);
 	else if (COLOR_IS("cielab"))
-		warnx("TODO : CIELab Specification: %s", color_name);
+		warnx("TODO : CIELab Specification: %s", name);
 	else if (COLOR_IS("tekhvc"))
-		warnx("TODO : TekHVC Specification: %s", color_name);
+		warnx("TODO : TekHVC Specification: %s", name);
 	else
-		warnx("TODO : Unknown Color (Named?): %s", color_name);
+		warnx("TODO : Unknown Color (Named?): %s", name);
 }
 
 static void

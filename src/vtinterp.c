@@ -449,7 +449,7 @@ esc_dispatch(unsigned char byte)
 		break;
 	case 0x5C: // \ - ST - String Terminator
 		break; // nothing to do
-	case 0x63: // c - RIS - Reset To Initial Set
+	case 0x63: // c - RIS - Reset To Initial State
 		reset();
 		break;
 	default:

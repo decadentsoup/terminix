@@ -801,12 +801,20 @@ select_graphic_rendition()
 						attrs.fg_truecolor = false;
 					} else {
 						attrs.background.r = parameters[i];
-						attrs.fg_truecolor = false;
+						attrs.bg_truecolor = false;
 					}
 
 					break;
 				}
 
+				break;
+			case 39:
+				attrs.foreground = default_attrs.foreground;
+				attrs.fg_truecolor = default_attrs.fg_truecolor;
+				break;
+			case 49:
+				attrs.background = default_attrs.background;
+				attrs.bg_truecolor = default_attrs.bg_truecolor;
 				break;
 			case 51: attrs.frame = FRAME_FRAMED; break;
 			case 52: attrs.frame = FRAME_ENCIRCLED; break;

@@ -21,22 +21,26 @@
 
 static const char *vertex_shader =
 	"#version 300 es\n"
-	"layout (location = 0) in vec2 vertex;\n"
-	"layout (location = 1) in vec2 texcoord_in;\n"
-	"out vec2 texcoord;\n"
+	"\n"
+	"in  vec2 vertex;\n"
+	"in  vec2 texcoords_in;\n"
+	"out vec2 texcoords;\n"
+	"\n"
 	"void main() {\n"
-		"gl_Position = vec4(vertex, 0.0, 1.0);\n"
-		"texcoord = texcoord_in;\n"
+	"	gl_Position = vec4(vertex, 0.0, 1.0);\n"
+	"	texcoords = texcoords_in;\n"
 	"}\n";
 
 static const char *fragment_shader =
 	"#version 300 es\n"
-	"precision mediump float;\n"
-	"uniform sampler2D texture_data;\n"
-	"in vec2 texcoord;\n"
-	"out vec4 color;\n"
+	"\n"
+	"precision mediump   float;\n"
+	"uniform   sampler2D image;\n"
+	"in        vec2      texcoords;\n"
+	"out       vec4      fragment_color;\n"
+	"\n"
 	"void main() {\n"
-		"color = texture(texture_data, texcoord);\n"
+	"	fragment_color = texture(image, texcoords);\n"
 	"}\n";
 
 static EGLDisplay egl_display;

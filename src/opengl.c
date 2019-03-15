@@ -182,8 +182,6 @@ compile_shader(GLenum type, const char *source)
 void
 render()
 {
-	static const struct color white = {0xFF, 0xFF, 0xFF};
-
 	unsigned char buffer[window_width * window_height * 3];
 	int x, y;
 
@@ -195,7 +193,8 @@ render()
 				&lines[y]->cells[x]);
 
 	if (mode[DECTCEM] && !(timer_count / 2 % 2))
-		render_glyph(buffer, white,
+		render_glyph(buffer, default_attrs.fg_truecolor ?
+			default_attrs.foreground : palette[default_attrs.foreground.r],
 			cursor.x * CHARWIDTH * (lines[cursor.y]->dimensions ? 2 : 1),
 			cursor.y * CHARHEIGHT, lines[cursor.y]->dimensions,
 			false, find_glyph(0x2588));

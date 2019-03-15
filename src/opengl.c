@@ -217,10 +217,7 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 	bool dbl;
 	struct color bg, fg, swap;
 
-	if (cell->code_point)
-		glyph = find_glyph(cell->code_point);
-	else
-		glyph = find_glyph(0x20);
+	glyph = find_glyph(cell->code_point ? cell->code_point : 0x20);
 
 	dbl = glyph[0] == 2;
 	bg = cell->bg_truecolor ? cell->background : palette[cell->background.r];
@@ -318,8 +315,7 @@ static void
 put_pixel(unsigned char *buffer, int x, int y, struct color color)
 {
 	size_t i;
-	if (x >= window_width) return;
-	if (y >= window_height) return;
+	if (x < 0 || x >= window_width || y < 0 || y >= window_height) return;
 	i = (x + y * window_width) * 3;
 	buffer[i++] = color.r;
 	buffer[i++] = color.g;

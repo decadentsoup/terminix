@@ -160,6 +160,7 @@ init_shaders()
 static GLuint
 compile_shader(GLenum type, const char *source)
 {
+	GLchar buffer[1024];
 	GLuint shader;
 	GLint status;
 
@@ -170,8 +171,10 @@ compile_shader(GLenum type, const char *source)
 	glCompileShader(shader);
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
 
-	if (!status)
-		die("failed to compile shader");
+	if (!status) {
+		glGetShaderInfoLog(shader, sizeof(buffer), NULL, buffer);
+		errx(EXIT_FAILURE, "failed to compile shader:\n%s", buffer);
+	}
 
 	return shader;
 }

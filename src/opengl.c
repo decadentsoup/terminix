@@ -15,6 +15,7 @@
 
 #include <err.h>
 #include <stdlib.h>
+#include <string.h>
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 #include "terminix.h"
@@ -35,12 +36,31 @@ static const char *fragment_shader =
 	"#version 300 es\n"
 	"\n"
 	"precision mediump   float;\n"
+	"const     float     sigma = 1.0;\n"
 	"uniform   sampler2D image;\n"
 	"in        vec2      texcoords;\n"
 	"out       vec4      fragment_color;\n"
 	"\n"
+	"float gaussian_weight(float i) {\n"
+	"	return exp(-i * i / (2.0 * sigma * sigma)) * (1.0 / 2.5066282746310002 * sigma);\n"
+	"}\n"
+	"\n"
+	"vec4 gaussian_blur(vec4 source) {\n"
+	"	float step = 1.0 / float(textureSize(image, 0).x);\n"
+	"	vec3 result = source.rgb;\n"
+	"	for (float i = 1.0; i < 32.0; i++) {\n"
+	"		float weight = gaussian_weight(i);\n"
+	"		vec4 color = texture(image, texcoords + vec2(step * i, 0.0));\n"
+	"		if (color.a == 1.0) result += color.rgb * weight;\n"
+	"		color = texture(image, texcoords - vec2(step * i, 0.0));\n"
+	"		if (color.a == 1.0) result += color.rgb * weight;\n"
+	"	}\n"
+	"	return vec4(result, 1.0);\n"
+	"}\n"
+	"\n"
 	"void main() {\n"
-	"	fragment_color = texture(image, texcoords);\n"
+	"	vec4 source = gaussian_blur(texture(image, texcoords));\n"
+	"	fragment_color = vec4(source.rgb, 1.0);\n"
 	"}\n";
 
 static EGLDisplay egl_display;
@@ -186,7 +206,7 @@ compile_shader(GLenum type, const char *source)
 void
 render()
 {
-	unsigned char buffer[window_width * window_height * 3];
+	unsigned char buffer[window_width * window_height * 4];
 	int x, y;
 
 	for (y = screen_height - 1; y >= 0; y--)
@@ -204,8 +224,8 @@ render()
 			false, find_glyph(0x2588));
 
 	glViewport(0, 0, window_width, window_height);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0,
-		GL_RGB, GL_UNSIGNED_BYTE, buffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_width, window_height, 0,
+		GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	eglSwapBuffers(egl_display, egl_surface);
 }
@@ -316,8 +336,10 @@ put_pixel(unsigned char *buffer, int x, int y, struct color color)
 {
 	size_t i;
 	if (x < 0 || x >= window_width || y < 0 || y >= window_height) return;
-	i = (x + y * window_width) * 3;
+	i = (x + y * window_width) * 4;
 	buffer[i++] = color.r;
 	buffer[i++] = color.g;
-	buffer[i  ] = color.b;
+	buffer[i++] = color.b;
+	// TODO : determine background color much more flexibly
+	buffer[i  ] = memcmp(&color, palette, sizeof(color)) ? 255 : 0;
 }

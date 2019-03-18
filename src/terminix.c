@@ -26,7 +26,8 @@ uint64_t current_time;
 
 static char *instance_name;
 static Display *display;
-static Atom utf8_string, wm_delete_window, net_wm_name, net_wm_icon_name;
+static Atom utf8_string, wm_protocols, wm_delete_window, net_wm_name,
+	net_wm_icon_name;
 static Window window;
 static XIM xim;
 static XIC xic;
@@ -90,7 +91,7 @@ main(int argc, char **argv)
 				XUnsetICFocus(xic);
 				break;
 			case ClientMessage:
-				if ((Atom)event.xclient.data.l[0] == wm_delete_window)
+				if (event.xclient.message_type == wm_protocols && (Atom)event.xclient.data.l[0] == wm_delete_window)
 					return 0;
 				break;
 			case MappingNotify:
@@ -192,6 +193,7 @@ init_x11()
 		die("failed to connect to X server");
 
 	utf8_string = XInternAtom(display, "UTF8_STRING", false);
+	wm_protocols = XInternAtom(display, "WM_PROTOCOLS", false);
 	wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", false);
 	net_wm_name = XInternAtom(display, "_NET_WM_NAME", false);
 	net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", false);

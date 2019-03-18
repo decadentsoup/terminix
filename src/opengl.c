@@ -38,6 +38,7 @@ static const char *fragment_shader =
 	"precision mediump   float;\n"
 	"const     float     sigma = 1.0;\n"
 	"uniform   sampler2D image;\n"
+	"uniform   float     time;\n"
 	"in        vec2      texcoords;\n"
 	"out       vec4      fragment_color;\n"
 	"\n"
@@ -45,22 +46,30 @@ static const char *fragment_shader =
 	"	return exp(-i * i / (2.0 * sigma * sigma)) * (1.0 / 2.5066282746310002 * sigma);\n"
 	"}\n"
 	"\n"
-	"vec4 gaussian_blur(vec4 source) {\n"
+	"vec3 gaussian_blur(vec3 source) {\n"
 	"	float step = 1.0 / float(textureSize(image, 0).x);\n"
-	"	vec3 result = source.rgb;\n"
 	"	for (float i = 1.0; i < 32.0; i++) {\n"
 	"		float weight = gaussian_weight(i);\n"
 	"		vec4 color = texture(image, texcoords + vec2(step * i, 0.0));\n"
-	"		if (color.a == 1.0) result += color.rgb * weight;\n"
+	"		if (color.a == 1.0) source += color.rgb * weight;\n"
 	"		color = texture(image, texcoords - vec2(step * i, 0.0));\n"
-	"		if (color.a == 1.0) result += color.rgb * weight;\n"
+	"		if (color.a == 1.0) source += color.rgb * weight;\n"
 	"	}\n"
-	"	return vec4(result, 1.0);\n"
+	"	return source;\n"
+	"}\n"
+	"\n"
+	"vec3 scanning_artifact(vec3 source) {\n"
+	"	float start = mod(time / 4.0, 1.4) - 0.4;\n"
+	"	float end = start + 0.2;\n"
+	"	if (texcoords.y > end) return source;\n"
+	"	return source * (1.0 + smoothstep(start, end, texcoords.y));\n"
 	"}\n"
 	"\n"
 	"void main() {\n"
-	"	vec4 source = gaussian_blur(texture(image, texcoords));\n"
-	"	fragment_color = vec4(source.rgb, 1.0);\n"
+	"	vec3 result = texture(image, texcoords).rgb;\n"
+	"	result = gaussian_blur(result);\n"
+	"	result = scanning_artifact(result);\n"
+	"	fragment_color = vec4(result, 1.0);\n"
 	"}\n";
 
 static EGLDisplay egl_display;
@@ -203,6 +212,19 @@ compile_shader(GLenum type, const char *source)
 	return shader;
 }
 
+// TODO : copy-pasting is bad!!!
+#include <time.h>
+static uint64_t
+get_time()
+{
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1)
+		pdie("failed to get time");
+
+	return ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
 void
 render()
 {
@@ -223,6 +245,7 @@ render()
 			cursor.y * CHARHEIGHT, lines[cursor.y]->dimensions,
 			false, find_glyph(0x2588));
 
+	glUniform1f(1, (float)get_time() / 1000000000);
 	glViewport(0, 0, window_width, window_height);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_width, window_height, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, buffer);

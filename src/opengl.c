@@ -58,6 +58,10 @@ static const char *fragment_shader =
 	"	return source;\n"
 	"}\n"
 	"\n"
+	"vec3 noisify(vec3 source) {\n"
+	"	return source * (1.0 + fract(sin(texcoords.x * texcoords.y * time) * 42000.0));\n"
+	"}\n"
+	"\n"
 	"vec3 scanning_artifact(vec3 source) {\n"
 	"	float start = mod(time / 4.0, 1.4) - 0.4;\n"
 	"	float end = start + 0.2;\n"
@@ -68,6 +72,7 @@ static const char *fragment_shader =
 	"void main() {\n"
 	"	vec3 result = texture(image, texcoords).rgb;\n"
 	"	result = gaussian_blur(result);\n"
+	"	result = noisify(result);\n"
 	"	result = scanning_artifact(result);\n"
 	"	fragment_color = vec4(result, 1.0);\n"
 	"}\n";

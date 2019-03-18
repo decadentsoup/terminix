@@ -217,19 +217,6 @@ compile_shader(GLenum type, const char *source)
 	return shader;
 }
 
-// TODO : copy-pasting is bad!!!
-#include <time.h>
-static uint64_t
-get_time()
-{
-	struct timespec ts;
-
-	if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1)
-		pdie("failed to get time");
-
-	return ts.tv_sec * 1000000000 + ts.tv_nsec;
-}
-
 void
 render()
 {
@@ -250,7 +237,7 @@ render()
 			cursor.y * CHARHEIGHT, lines[cursor.y]->dimensions,
 			false, find_glyph(0x2588));
 
-	glUniform1f(1, (float)get_time() / 1000000000);
+	glUniform1f(1, current_time / 1000000000.0);
 	glViewport(0, 0, window_width, window_height);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_width, window_height, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, buffer);

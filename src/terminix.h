@@ -34,6 +34,7 @@
 // --- window management --- //
 
 extern int window_width, window_height, timer_count;
+extern uint64_t current_time;
 void set_window_title(const char *);
 void set_icon_name(const char *);
 void resize_window(void);

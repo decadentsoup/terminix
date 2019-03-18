@@ -22,6 +22,7 @@
 #include "terminix.h"
 
 int window_width, window_height, timer_count;
+uint64_t current_time;
 
 static char *instance_name;
 static Display *display;
@@ -43,7 +44,7 @@ static void kpam(char);
 int
 main(int argc, char **argv)
 {
-	uint64_t lasttick, currtime;
+	uint64_t lasttick;
 	XEvent event;
 
 	if (atexit(handle_exit))
@@ -63,8 +64,8 @@ main(int argc, char **argv)
 	lasttick = 0;
 
 	for (;;) {
-		while ((currtime = get_time()) - lasttick > 400000000) {
-			lasttick = currtime;
+		while ((current_time = get_time()) - lasttick > 400000000) {
+			lasttick = current_time;
 			timer_count++;
 		}
 

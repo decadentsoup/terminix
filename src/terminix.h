@@ -43,10 +43,10 @@ extern int window_width, window_height;
 void wminit(char *);
 void wmkill(void);
 void wmpoll(void);
-void set_window_title(const char *);
-void set_icon_name(const char *);
-void resize_window(void);
-void ring_bell(void);
+void wmname(const char *);
+void wmiconname(const char *);
+void wmresize(void);
+void wmbell(void);
 
 // --- rendering --- //
 

@@ -169,7 +169,7 @@ resize(int width, int height)
 	cursor.x = 0;
 	cursor.y = 0;
 
-	resize_window();
+	wmresize();
 }
 
 void

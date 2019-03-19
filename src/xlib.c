@@ -95,21 +95,21 @@ wmpoll()
 }
 
 void
-set_window_title(const char *title)
+wmname(const char *title)
 {
 	XChangeProperty(display, window, net_wm_name, utf8_string, 8,
 		PropModeReplace, (const unsigned char *)title, strlen(title));
 }
 
 void
-set_icon_name(const char *name)
+wmiconname(const char *name)
 {
 	XChangeProperty(display, window, net_wm_icon_name, utf8_string, 8,
 		PropModeReplace, (const unsigned char *)name, strlen(name));
 }
 
 void
-resize_window()
+wmresize()
 {
 	window_width = screen_width * CHARWIDTH;
 	window_height = screen_height * CHARHEIGHT;
@@ -119,7 +119,7 @@ resize_window()
 }
 
 void
-ring_bell()
+wmbell()
 {
 	XBell(display, 0);
 }

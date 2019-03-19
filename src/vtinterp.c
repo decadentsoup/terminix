@@ -330,7 +330,7 @@ execute(unsigned char byte)
 		warnx("TODO : Enquiry");
 		break;
 	case 0x07: // Bell
-		ring_bell();
+		wmbell();
 		break;
 	case 0x08: // Backspace
 		if (cursor.x > 0) {
@@ -885,12 +885,12 @@ osc_end()
 	data = &osc[osc_data_offset];
 
 	if (OSC_IS("0")) {
-		set_window_title(data);
-		set_icon_name(data);
+		wmname(data);
+		wmiconname(data);
 	} else if (OSC_IS("1") || OSC_IS("2L")) {
-		set_icon_name(data);
+		wmiconname(data);
 	} else if (OSC_IS("2") || OSC_IS("21")) {
-		set_window_title(data);
+		wmname(data);
 	} else if (OSC_IS("3")) {
 		warnx("TODO : set X property to %s", data);
 	} else if (OSC_IS("4")) {

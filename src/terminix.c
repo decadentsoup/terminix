@@ -184,6 +184,7 @@ handle_exit()
 static void
 init_x11()
 {
+	XVisualInfo visual_info;
 	XSetWindowAttributes attrs;
 	XSizeHints *normal_hints;
 	XWMHints *hints;
@@ -198,11 +199,22 @@ init_x11()
 	net_wm_name = XInternAtom(display, "_NET_WM_NAME", false);
 	net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", false);
 
+	// Normally we would ask EGL which visual it would like, but MESA
+	// actively refuses to return those compatible with transparent windows.
+	// See: https://bugs.freedesktop.org/show_bug.cgi?id=67676
+	// Instead, we will just grab one we like and hope it works!
+	if (!XMatchVisualInfo(display, DefaultScreen(display), 32, TrueColor, &visual_info))
+		die("failed to find compatible visual");
+
+	attrs.background_pixel = 0;
+	attrs.border_pixel = 0;
 	attrs.event_mask = KeyPressMask|KeyReleaseMask|FocusChangeMask;
+	attrs.colormap = XCreateColormap(display, DefaultRootWindow(display), visual_info.visual, AllocNone);
 
 	window = XCreateWindow(display, DefaultRootWindow(display), 0, 0,
-		window_width, window_height, 0, CopyFromParent, InputOutput,
-		CopyFromParent, CWEventMask, &attrs);
+		window_width, window_height, 0, visual_info.depth, InputOutput,
+		visual_info.visual,
+		CWBackPixel|CWBorderPixel|CWEventMask|CWColormap, &attrs);
 
 	if (!(normal_hints = XAllocSizeHints()))
 		pdie("failed to allocate XSizeHints");

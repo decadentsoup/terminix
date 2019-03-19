@@ -70,11 +70,12 @@ static const char *fragment_shader =
 	"}\n"
 	"\n"
 	"void main() {\n"
-	"	vec3 result = texture(image, texcoords).rgb;\n"
+	"	vec4 source = texture(image, texcoords);\n"
+	"	vec3 result = source.rgb;\n"
 	"	result = gaussian_blur(result);\n"
 	"	result = noisify(result);\n"
 	"	result = scanning_artifact(result);\n"
-	"	fragment_color = vec4(result, 1.0);\n"
+	"	fragment_color = vec4(result, source.a == 0.0 ? 0.7 : 1.0);\n"
 	"}\n";
 
 static EGLDisplay egl_display;
@@ -111,8 +112,20 @@ deinit_renderer()
 static void
 init_egl(EGLNativeDisplayType display, EGLNativeWindowType window)
 {
-	static const EGLint cfg_attrs[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE };
-	static const EGLint ctx_attrs[] = { EGL_CONTEXT_MAJOR_VERSION, 2, EGL_NONE };
+	static const EGLint cfg_attrs[] = {
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_RED_SIZE, 8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE, 8,
+		EGL_ALPHA_SIZE, 8,
+		EGL_NONE
+	};
+
+	static const EGLint ctx_attrs[] = {
+		EGL_CONTEXT_MAJOR_VERSION, 2,
+		EGL_NONE
+	};
 
 	EGLConfig config;
 	EGLint num_config;

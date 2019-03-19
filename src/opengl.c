@@ -96,7 +96,7 @@ static void render_glyph(unsigned char *, struct color, int, int, char, bool,
 static void put_pixel(unsigned char *, int, int, struct color);
 
 void
-init_renderer(EGLNativeDisplayType display, EGLNativeWindowType window)
+glinit(EGLNativeDisplayType display, EGLNativeWindowType window)
 {
 	init_egl(display, window);
 	init_gl();
@@ -104,7 +104,7 @@ init_renderer(EGLNativeDisplayType display, EGLNativeWindowType window)
 }
 
 void
-deinit_renderer()
+glkill()
 {
 	egl_display ? eglTerminate(egl_display) : 0;
 }
@@ -231,7 +231,7 @@ compile_shader(GLenum type, const char *source)
 }
 
 void
-render()
+gldraw()
 {
 	unsigned char buffer[window_width * window_height * 4];
 	int x, y;

@@ -31,10 +31,18 @@
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
+// --- timing --- //
+
+extern int timer_count;
+extern uint64_t current_time;
+
 // --- window management --- //
 
-extern int window_width, window_height, timer_count;
-extern uint64_t current_time;
+extern int window_width, window_height;
+
+void wminit(char *);
+void wmkill(void);
+void wmpoll(void);
 void set_window_title(const char *);
 void set_icon_name(const char *);
 void resize_window(void);
@@ -42,9 +50,9 @@ void ring_bell(void);
 
 // --- rendering --- //
 
-void init_renderer(EGLNativeDisplayType, EGLNativeWindowType);
-void deinit_renderer(void);
-void render(void);
+void glinit(EGLNativeDisplayType, EGLNativeWindowType);
+void glkill(void);
+void gldraw(void);
 
 // --- pseudoterminals --- //
 

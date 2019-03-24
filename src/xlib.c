@@ -29,16 +29,16 @@ static XIM xim;
 static XIC xic;
 static bool keystate[256];
 
-static void init_x11(char *instance_name);
+static void init_x11(void);
 static void init_xkb(void);
 static void init_xim(void);
 static void handle_key(XKeyEvent *);
 static void kpam(char);
 
 void
-wminit(char *instance_name)
+wminit()
 {
-	init_x11(instance_name);
+	init_x11();
 	init_xkb();
 	init_xim();
 
@@ -125,7 +125,7 @@ wmbell()
 }
 
 static void
-init_x11(char *instance_name)
+init_x11()
 {
 	XVisualInfo visual_info;
 	XSetWindowAttributes attrs;

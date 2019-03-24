@@ -13,18 +13,23 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#include <getopt.h>
 #include <locale.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "terminix.h"
 
+char *instance_name;
+float opacity = 1.0, glow = 0.0, static_ = 0.0, glow_line = 0.0,
+	glow_line_speed = 4.0;
+
 int timer_count;
 uint64_t current_time;
 
-static char *instance_name;
-
 static void parse_command_line(int, char **);
+static float parse_percentage(const char *);
 static uint64_t get_time(void);
 static void handle_exit(void);
 
@@ -43,7 +48,7 @@ main(int argc, char **argv)
 	resize(80, 24);
 	reset();
 	ptinit("/bin/bash");
-	wminit(instance_name);
+	wminit();
 	// glinit called by wminit
 	lasttick = 0;
 
@@ -62,11 +67,58 @@ main(int argc, char **argv)
 static void
 parse_command_line(int argc, char **argv)
 {
-	int i;
+	enum { HELP = 1, VERSION, NAME, OPACITY, GLOW, STATIC, GLOW_LINE,
+ 		GLOW_LINE_SPEED };
 
-	for (i = 1; i < argc; i++)
-		if (!strcmp(argv[i], "-name") && i < argc - 1)
-			instance_name = argv[++i];
+	static const struct option options[] = {
+		{ "help", no_argument, 0, HELP },
+		{ "version", no_argument, 0, VERSION },
+		{ "name", required_argument, 0, NAME },
+		{ "opacity", required_argument, 0, OPACITY },
+		{ "glow", required_argument, 0, GLOW },
+		{ "static", required_argument, 0, STATIC },
+		{ "glow-line", required_argument, 0, GLOW_LINE },
+		{ "glow-line-speed", required_argument, 0, GLOW_LINE_SPEED },
+		{ 0, 0, 0, 0 }
+	};
+
+	int opt;
+	bool badopt;
+
+	badopt = false;
+
+	while ((opt = getopt_long_only(argc, argv, "", options, NULL)) != -1)
+		switch (opt) {
+		case HELP:
+			die("TODO : help not yet implemented");
+		case VERSION:
+			fputs("terminix " PKGVER "\n", stderr);
+			exit(EXIT_SUCCESS);
+		case NAME:
+			instance_name = optarg;
+			break;
+		case OPACITY:
+			opacity = parse_percentage(optarg);
+			break;
+		case GLOW:
+			glow = parse_percentage(optarg);
+			break;
+		case STATIC:
+			static_ = parse_percentage(optarg);
+			break;
+		case GLOW_LINE:
+			glow_line = parse_percentage(optarg);
+			break;
+		case GLOW_LINE_SPEED:
+			glow_line_speed = atof(optarg);
+			break;
+		case '?':
+			badopt = true;
+			break;
+		}
+
+	if (badopt)
+		die("bad command line arguments; aborting...");
 
 	if (!instance_name)
 		instance_name = getenv("RESOURCE_NAME");
@@ -76,6 +128,15 @@ parse_command_line(int argc, char **argv)
 
 	if (!instance_name)
 		instance_name = argv[0];
+}
+
+static float
+parse_percentage(const char *argument)
+{
+	if (strchr(argument, '%'))
+		return atof(argument) / 100.0;
+
+	return atof(argument);
 }
 
 static uint64_t

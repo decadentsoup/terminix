@@ -32,18 +32,23 @@ static const char *vertex_shader =
 	"	texcoords = texcoords_in;\n"
 	"}\n";
 
+// TODO : _amount_ of glow, static, and glow line
 static const char *fragment_shader =
 	"#version 300 es\n"
 	"\n"
 	"precision mediump   float;\n"
-	"const     float     sigma = 1.0;\n"
 	"uniform   sampler2D image;\n"
 	"uniform   float     time;\n"
+	"uniform   float     opacity;\n"
+	"uniform   float     glow;\n"
+	"uniform   float     static_;\n"
+	"uniform   float     glow_line;\n"
+	"uniform   float     glow_line_speed;\n"
 	"in        vec2      texcoords;\n"
 	"out       vec4      fragment_color;\n"
 	"\n"
 	"float gaussian_weight(float i) {\n"
-	"	return exp(-i * i / (2.0 * sigma * sigma)) * (1.0 / 2.5066282746310002 * sigma);\n"
+	"	return exp(-i * i / (2.0 * glow * glow)) * (1.0 / 2.5066282746310002 * glow);\n"
 	"}\n"
 	"\n"
 	"vec3 gaussian_blur(vec3 source) {\n"
@@ -59,11 +64,12 @@ static const char *fragment_shader =
 	"}\n"
 	"\n"
 	"vec3 noisify(vec3 source) {\n"
+	"	if (static_ == 0.0) return source;\n"
 	"	return source * (1.0 + fract(sin(texcoords.x * texcoords.y * time) * 42000.0));\n"
 	"}\n"
 	"\n"
 	"vec3 scanning_artifact(vec3 source) {\n"
-	"	float start = mod(time / 4.0, 1.4) - 0.4;\n"
+	"	float start = mod(time / glow_line_speed, 1.4) - 0.4;\n"
 	"	float end = start + 0.2;\n"
 	"	if (texcoords.y > end) return source;\n"
 	"	return source * (1.0 + smoothstep(start, end, texcoords.y));\n"
@@ -72,10 +78,10 @@ static const char *fragment_shader =
 	"void main() {\n"
 	"	vec4 source = texture(image, texcoords);\n"
 	"	vec3 result = source.rgb;\n"
-	"	result = gaussian_blur(result);\n"
-	"	result = noisify(result);\n"
-	"	result = scanning_artifact(result);\n"
-	"	fragment_color = vec4(result, source.a == 0.0 ? 0.7 : 1.0);\n"
+	"	if (glow      != 0.0) result = gaussian_blur(result);\n"
+	"	if (static_   != 0.0) result = noisify(result);\n"
+	"	if (glow_line != 0.0) result = scanning_artifact(result);\n"
+	"	fragment_color = vec4(result, source.a == 0.0 ? opacity : 1.0);\n"
 	"}\n";
 
 static EGLDisplay egl_display;
@@ -202,9 +208,11 @@ init_shaders()
 	glDeleteShader(vertex);
 	glDeleteShader(fragment);
 
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), NULL);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
+		4 * sizeof(GLfloat), NULL);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+		4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
 }
 
@@ -251,6 +259,11 @@ gldraw()
 			false, find_glyph(0x2588));
 
 	glUniform1f(1, current_time / 1000000000.0);
+	glUniform1f(2, opacity);
+	glUniform1f(3, glow);
+	glUniform1f(4, static_);
+	glUniform1f(5, glow_line);
+	glUniform1f(6, glow_line_speed);
 	glViewport(0, 0, window_width, window_height);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_width, window_height, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, buffer);

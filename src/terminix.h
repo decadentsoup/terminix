@@ -31,6 +31,13 @@
 #define die(message) (errx(EXIT_FAILURE, "%s", message))
 #define pdie(message) (err(EXIT_FAILURE, "%s", message))
 
+// --- settings --- //
+
+// Note: instance_name must be non-const because XClassHint declares res_name
+// non-const. It can be made const if we stop using XSetClassHint in xlib.c.
+extern char *instance_name;
+extern float opacity, glow, static_, glow_line, glow_line_speed;
+
 // --- timing --- //
 
 extern int timer_count;
@@ -40,7 +47,7 @@ extern uint64_t current_time;
 
 extern int window_width, window_height;
 
-void wminit(char *);
+void wminit(void);
 void wmkill(void);
 void wmpoll(void);
 void wmname(const char *);

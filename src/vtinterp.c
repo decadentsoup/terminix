@@ -208,7 +208,7 @@ interpret52(unsigned char byte)
 {
 	if (byte == 0x1B) {
 		state52 = STATE52_ESCAPE;
-	} else if (byte <= 0x1F) {
+	} else if (byte <= 0x1F || byte == 0x7F) {
 		execute(byte);
 	} else if (state52 == STATE52_DCA1) {
 		intermediate = byte;

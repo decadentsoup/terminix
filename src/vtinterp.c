@@ -220,42 +220,45 @@ interpret52(unsigned char byte)
 		state52 = STATE52_GROUND;
 
 		switch (byte) {
-		case 'A': case 'B': case 'C': case 'D':
+		case 0x3C: // < - Enter ANSI Mode
+			mode[DECANM] = true;
+			break;
+		case 0x3D: // = - Enter Alternative Keypad Mode
+			mode[DECKPAM] = true;
+			break;
+		case 0x3E: // > - Exit Alternative Keypad Mode
+			mode[DECKPAM] = false;
+			break;
+		case 0x41: // A - Cursor Up
+		case 0x42: // B - Cursor Down
+		case 0x43: // C - Cursor Right
+		case 0x44: // D - Cursor Left
 			move_cursor(byte, 1);
 			break;
-		case 'F':
+		case 0x46: // F - Enter Graphics Mode
 			warnx("vt52 - select special graphics character set");
 			break;
-		case 'G':
+		case 0x47: // G - Exit Graphics Mode
 			warnx("vt52 - select ascii character set");
 			break;
-		case 'H':
+		case 0x48: // H - Cursor to Home
 			cursor.x = 0;
 			cursor.y = 0;
 			break;
-		case 'I':
+		case 0x49: // I - Reverse Line Feed
 			revline();
 			break;
-		case 'J':
+		case 0x4A: // J - Erase to End of Screen
 			erase_display(0);
 			break;
-		case 'K':
+		case 0x4B: // K - Erase to End of Line
 			erase_line(0);
 			break;
-		case 'Y':
+		case 0x59: // Y - Direct Cursor Address
 			state52 = STATE52_DCA1;
 			break;
-		case 'Z':
+		case 0x5A: // Z - Identify
 			ptwrite("\33/Z");
-			break;
-		case '=':
-			mode[DECKPAM] = true;
-			break;
-		case '>':
-			mode[DECKPAM] = false;
-			break;
-		case '<':
-			mode[DECANM] = true;
 			break;
 		default:
 			intermediate = 0;

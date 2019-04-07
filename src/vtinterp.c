@@ -326,7 +326,7 @@ execute(unsigned char byte)
 {
 	switch (byte) {
 	case 0x05: // Enquiry
-		warnx("TODO : Enquiry");
+		ptwrite("%s", answerback);
 		break;
 	case 0x07: // Bell
 		wmbell();

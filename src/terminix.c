@@ -22,6 +22,7 @@
 #include "terminix.h"
 
 char *instance_name;
+const char *answerback = "";
 float opacity = 1.0, glow = 0.0, static_ = 0.0, glow_line = 0.0,
 	glow_line_speed = 4.0;
 
@@ -67,13 +68,14 @@ main(int argc, char **argv)
 static void
 parse_command_line(int argc, char **argv)
 {
-	enum { HELP = 1, VERSION, NAME, OPACITY, GLOW, STATIC, GLOW_LINE,
- 		GLOW_LINE_SPEED };
+	enum { HELP = 1, VERSION, NAME, ANSWERBACK, OPACITY, GLOW, STATIC,
+		GLOW_LINE, GLOW_LINE_SPEED };
 
 	static const struct option options[] = {
 		{ "help", no_argument, 0, HELP },
 		{ "version", no_argument, 0, VERSION },
 		{ "name", required_argument, 0, NAME },
+		{ "answerback", required_argument, 0, ANSWERBACK },
 		{ "opacity", required_argument, 0, OPACITY },
 		{ "glow", required_argument, 0, GLOW },
 		{ "static", required_argument, 0, STATIC },
@@ -96,6 +98,9 @@ parse_command_line(int argc, char **argv)
 			exit(EXIT_SUCCESS);
 		case NAME:
 			instance_name = optarg;
+			break;
+		case ANSWERBACK:
+			answerback = optarg;
 			break;
 		case OPACITY:
 			opacity = parse_percentage(optarg);

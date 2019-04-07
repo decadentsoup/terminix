@@ -36,6 +36,7 @@
 // Note: instance_name must be non-const because XClassHint declares res_name
 // non-const. It can be made const if we stop using XSetClassHint in xlib.c.
 extern char *instance_name;
+extern const char *answerback;
 extern float opacity, glow, static_, glow_line, glow_line_speed;
 
 // --- timing --- //

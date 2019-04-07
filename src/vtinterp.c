@@ -127,8 +127,7 @@ interpret(unsigned char byte)
 
 	switch (state) {
 	case STATE_GROUND:
-		COND(byte <= 0x1F, execute(byte));
-		// COND(byte <= 0x7E, print(byte));
+		COND(byte <= 0x1F || byte == 0x7F, execute(byte));
 		print(byte);
 		break;
 	case STATE_ESCAPE:

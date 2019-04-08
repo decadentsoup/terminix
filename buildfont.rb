@@ -15,6 +15,8 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 CUSTOM_GLYPHS = {
+  # Overrides the 16x16 ones from the Unifont with equivalent 8x16 ones. I am
+  # not a graphics artist but I think they came out decently.
   0x2409 => '00008888F88888003E08080808000000',
   0x240A => '000080808080F8003E203C2020000000',
   0x240B => '00008888885020003E08080808000000',

@@ -195,6 +195,62 @@ reset()
 }
 
 void
+erase_display(int param)
+{
+	int x, y, n;
+
+	switch (param) {
+	case 0:
+		if (cursor.x == 0)
+			lines[cursor.y]->dimensions = SINGLE_WIDTH;
+		erase_line(0);
+		y = cursor.y + 1;
+		n = screen_height;
+		break;
+	case 1:
+		if (cursor.x == screen_width - 1)
+			lines[cursor.y]->dimensions = SINGLE_WIDTH;
+		erase_line(1);
+		y = 0;
+		n = cursor.y;
+		break;
+	case 2:
+		y = 0;
+		n = screen_height;
+		break;
+	default:
+		return;
+	}
+
+	for (; y < n; y++) {
+		lines[y]->dimensions = SINGLE_WIDTH;
+
+		for (x = 0; x < screen_width; x++)
+			lines[y]->cells[x] = cursor.attrs;
+	}
+
+	cursor.last_column = false;
+}
+
+void
+erase_line(int param)
+{
+	int x, max;
+
+	switch (param) {
+	case 0: x = cursor.x; max = screen_width; break;
+	case 1: x = 0; max = cursor.x + 1; break;
+	case 2: x = 0; max = screen_width; break;
+	default: return;
+	}
+
+	for (; x < max; x++)
+		lines[cursor.y]->cells[x] = cursor.attrs;
+
+	cursor.last_column = false;
+}
+
+void
 warpto(int x, int y)
 {
 	int miny, maxy;
@@ -208,6 +264,17 @@ warpto(int x, int y)
 	cursor.x = x;
 	cursor.y = y;
 	cursor.last_column = false;
+}
+
+void
+move_cursor(unsigned char direction, int amount)
+{
+	switch (direction) {
+	case 0x41: warpto(cursor.x, cursor.y - amount); break;
+	case 0x42: warpto(cursor.x, cursor.y + amount); break;
+	case 0x43: warpto(cursor.x + amount, cursor.y); break;
+	case 0x44: warpto(cursor.x - amount, cursor.y); break;
+	}
 }
 
 void

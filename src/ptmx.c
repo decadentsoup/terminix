@@ -185,7 +185,7 @@ ptpump()
 static void
 read_ptmx()
 {
-	unsigned char buffer[1024];
+	char buffer[1024];
 	ssize_t n;
 
 	if ((n = read(ptmx, buffer, sizeof(buffer))) < 0) {
@@ -193,7 +193,10 @@ read_ptmx()
 		pdie("failed to read parent pseudoterminal");
 	}
 
-	vtinterp(buffer, n);
+	if (mode[DECANM])
+		vt100(buffer, n);
+	else
+		vt52(buffer, n);
 }
 
 static void

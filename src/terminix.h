@@ -72,7 +72,11 @@ void ptpump(void);
 
 // --- escape codes --- //
 
-void vtinterp(const unsigned char *, size_t);
+void unrecognized_escape(unsigned char, unsigned char);
+void execute(unsigned char);
+void print(unsigned char);
+void vt52(const char *, size_t);
+void vt100(const char *, size_t);
 
 // --- unifont --- //
 
@@ -142,7 +146,10 @@ extern short screen_width, screen_height, scroll_top, scroll_bottom;
 void deinit_screen(void);
 void resize(int, int);
 void reset(void);
+void erase_display(int);
+void erase_line(int);
 void warpto(int, int);
+void move_cursor(unsigned char, int);
 void scrollup(void);
 void scrolldown(void);
 void newline(void);

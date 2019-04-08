@@ -97,15 +97,16 @@ const uint32_t charset_dec_graphics[] = { 0x5F, 0x7E,
 	0x2265, 0x03C0, 0x2260, 0x00A3, 0x00B7 };
 
 // Note 1: Unicode does not seem to have an equivalent to the fractional glyphs
-// supported by the VT52 which combined superscripts of 1, 2, 5, and 7 with a
-// solidus. A hack is necessary, so for now we're just using replacement chars.
+// supported by the VT52 which combined superscripts of 2, 5, and 7 with a
+// solidus, though it does have an equivalent to 1-over (U+215A). A hack is
+// necessary, so for now we're just using replacement chars for 2/5/7.
 
 // Note 2: bars at odd scanlines are supported by Unicode and can be translated
 // directly, but even scanlines are not. Currently, they're currected to the
 // line beneath them, but it'd be nice to hack in even scanlines at some point.
 
 const uint32_t charset_vt52_graphics[] = { 0x5E, 0x7E,
-	0x0000, 0x0000, 0x2665, 0x2588, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0x00B0,
+	0x0000, 0x0000, 0x2665, 0x2588, 0x215F, 0xFFFD, 0xFFFD, 0xFFFD, 0x00B0,
 	0x00B1, 0x2192, 0x2026, 0x00F7, 0x2193, 0x23BA, 0x23BA, 0x23BB, 0x23BB,
 	0x2500, 0x2500, 0x23BC, 0x23BC, 0x2080, 0x2081, 0x2082, 0x2083, 0x2084,
 	0x2085, 0x2086, 0x2087, 0x2088, 0x2089, 0x00B6 };

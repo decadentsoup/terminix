@@ -128,7 +128,8 @@ struct cursor {
 #define LINE_SIZE(width) \
 	(sizeof(struct line) + (width) * sizeof(struct cell))
 
-extern const uint32_t charset_united_kingdom[], charset_dec_graphics[];
+extern const uint32_t charset_united_kingdom[], charset_dec_graphics[],
+	charset_vt52_graphics[];
 extern const struct cell default_attrs;
 
 extern struct color palette[256];

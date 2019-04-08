@@ -236,10 +236,10 @@ interpret52(unsigned char byte)
 			move_cursor(byte, 1);
 			break;
 		case 0x46: // F - Enter Graphics Mode
-			warnx("vt52 - select special graphics character set");
+			cursor.charset[mode[SHIFT_OUT]] = charset_vt52_graphics;
 			break;
 		case 0x47: // G - Exit Graphics Mode
-			warnx("vt52 - select ascii character set");
+			cursor.charset[mode[SHIFT_OUT]] = NULL;
 			break;
 		case 0x48: // H - Cursor to Home
 			cursor.x = 0;

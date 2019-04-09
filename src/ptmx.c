@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,12 +33,12 @@ static unsigned char write_buffer[1024];
 static size_t write_buffer_size;
 
 static void set_nonblock(void);
-static _Noreturn void init_child(const char *, const char *);
+static _Noreturn void init_child(const char *);
 static void read_ptmx(void);
 static void flush_ptmx(void);
 
 void
-ptinit(const char *shell)
+ptinit()
 {
 	const char *pts;
 
@@ -59,7 +60,7 @@ ptinit(const char *shell)
 	case -1:
 		pdie("failed to create child process");
 	case 0:
-		init_child(pts, shell);
+		init_child(pts);
 	}
 }
 
@@ -76,8 +77,11 @@ set_nonblock()
 }
 
 static void
-init_child(const char *pts, const char *shell)
+init_child(const char *pts)
 {
+	const struct passwd *passwd;
+	const char *shell;
+
 	if (setsid() < 0) pdiec("failed to create session");
 
 	if (close(0)) pdiec("failed to close standard input");
@@ -91,11 +95,26 @@ init_child(const char *pts, const char *shell)
 	if (dup(0) < 0) pdiec("failed to dup pseudoterminal (1)");
 	if (dup(0) < 0) pdiec("failed to dup pseudoterminal (2)");
 
+	if (!(shell = getenv("SHELL"))) {
+		errno = 0;
+
+		if (!(passwd = getpwuid(getuid()))) {
+			if (errno)
+				warn("failed to get user's default shell");
+			else
+				warn("you don't exist");
+
+			shell = "/bin/sh";
+		} else {
+			shell = passwd->pw_shell[0]?passwd->pw_shell:"/bin/sh";
+		}
+	}
+
 	unsetenv("COLUMNS");
 	unsetenv("LINES");
+	unsetenv("SHELL");
 	unsetenv("TERMCAP");
 
-	setenv("SHELL", shell, 1);
 	setenv("TERM", "vt100", 1);
 
 	execl(shell, shell, NULL);

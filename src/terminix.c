@@ -48,7 +48,7 @@ main(int argc, char **argv)
 	parse_command_line(argc, argv);
 	resize(80, 24);
 	reset();
-	ptinit("/bin/bash");
+	ptinit();
 	wminit();
 	// glinit called by wminit
 	lasttick = 0;

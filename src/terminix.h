@@ -64,7 +64,7 @@ void gldraw(void);
 
 // --- pseudoterminals --- //
 
-void ptinit(const char *);
+void ptinit(void);
 void ptkill(void);
 void ptbreak(bool);
 void ptwrite(const char *, ...) __attribute__((__format__(printf, 1, 2)));

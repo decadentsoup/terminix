@@ -195,6 +195,40 @@ reset()
 }
 
 void
+insert_line()
+{
+	struct line *temp;
+	int i;
+
+	temp = lines[scroll_bottom];
+
+	memmove(&lines[cursor.y + 1], &lines[cursor.y],
+		(scroll_bottom - cursor.y) * sizeof(struct line *));
+
+	lines[cursor.y] = temp;
+
+	for (i = 0; i < screen_width; i++)
+		lines[cursor.y]->cells[i] = cursor.attrs;
+}
+
+void
+delete_line()
+{
+	struct line *temp;
+	int i;
+
+	temp = lines[cursor.y];
+
+	memmove(&lines[cursor.y], &lines[cursor.y + 1],
+		(scroll_bottom - cursor.y) * sizeof(struct line *));
+
+	lines[scroll_bottom] = temp;
+
+	for (i = 0; i < screen_width; i++)
+		lines[scroll_bottom]->cells[i] = cursor.attrs;
+}
+
+void
 erase_display(int param)
 {
 	int x, y, n;

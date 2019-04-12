@@ -50,7 +50,6 @@ static size_t osc_size, osc_data_offset;
 // VT100 with Processor Option, Advanced Video Option, and Graphics Option
 static const char DEVICE_ATTRS[] = "\x1B\x5B\x3F\x31\x3B\x37\x63";
 
-static void interpret(unsigned char);
 static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
@@ -73,22 +72,13 @@ static void parse_rgb(struct color *, const char *);
 static uint8_t parse_rgb_part(const char *);
 static void parse_rgbi(struct color *, const char *);
 
-void
-vt100(const char *buffer, size_t bufsize)
-{
-	size_t i;
-
-	for (i = 0; i < bufsize; i++)
-		interpret(buffer[i]);
-}
-
 #define COND(condition, action) \
 	do { if (condition) { action; return; } } while(0);
 
 #define NEXT(target) (state = STATE_##target)
 
-static void
-interpret(unsigned char byte)
+void
+vt100(unsigned char byte)
 {
 	// substitute and cancel controls
 	// TODO : should this execute an OSC instruction?
@@ -267,6 +257,7 @@ esc_dispatch(unsigned char byte)
 		reset();
 		break;
 	default:
+		warnx("VT100");
 		unrecognized_escape(intermediate, byte);
 		break;
 	}

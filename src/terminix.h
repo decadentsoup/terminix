@@ -75,8 +75,8 @@ void ptpump(void);
 void unrecognized_escape(unsigned char, unsigned char);
 void execute(unsigned char);
 void print(unsigned char);
-void vt52(const char *, size_t);
-void vt100(const char *, size_t);
+void vt52(unsigned char);
+void vt100(unsigned char);
 
 // --- unifont --- //
 
@@ -146,6 +146,8 @@ extern short screen_width, screen_height, scroll_top, scroll_bottom;
 void deinit_screen(void);
 void resize(int, int);
 void reset(void);
+void insert_line(void);
+void delete_line(void);
 void erase_display(int);
 void erase_line(int);
 void warpto(int, int);

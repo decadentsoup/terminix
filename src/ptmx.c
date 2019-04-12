@@ -205,17 +205,18 @@ static void
 read_ptmx()
 {
 	char buffer[1024];
-	ssize_t n;
+	ssize_t i, n;
 
 	if ((n = read(ptmx, buffer, sizeof(buffer))) < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) return;
 		pdie("failed to read parent pseudoterminal");
 	}
 
-	if (mode[DECANM])
-		vt100(buffer, n);
-	else
-		vt52(buffer, n);
+	for (i = 0; i < n; i++)
+		if (mode[DECANM])
+			vt100(buffer[i]);
+		else
+			vt52(buffer[i]);
 }
 
 static void

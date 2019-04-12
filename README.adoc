@@ -15,14 +15,8 @@ You can print Klingon, so that's cool.
 * https://www.khronos.org/opengles[OpenGL ES 2.0]
 * http://unifoundry.com/unifont/index.html[GNU Unifont]
 
-== Build Instructions
-
 Terminix embeds the GNU Unifont directly into its executable.
-In order to do so, download and extract the Unifont's source code and extract it into a directory titled "unifont" in the same directory as this README.
-Then, run `./buildfont.rb` to compile the Unifont into `src/unifont.c`.
-
-Run `./build.sh` to compile the program.
-To execute the program, run `./terminix`.
+In order to do so, download and extract the Unifont's source code and extract it into a directory titled "unifont" in the same directory as the Makefile.
 
 == Bugs
 

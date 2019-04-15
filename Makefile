@@ -9,7 +9,7 @@ all: terminix
 
 terminix: $(SOURCES)
 	$(CC) \
-		-DPKGVER="\"r$(git rev-list --count HEAD).$(git rev-parse --short HEAD)\"" \
+		-DPKGVER="\"r`git rev-list --count HEAD`.`git rev-parse --short HEAD`\"" \
 		-Werror -Wall -Wextra \
 		$(SOURCES) \
 		-o terminix \

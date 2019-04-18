@@ -15,6 +15,8 @@
 
 #include "terminix.h"
 
+#define self_test() (warnx("TODO : self-test"))
+
 enum state {
 	STATE_GROUND,
 	STATE_ESCAPE,
@@ -33,6 +35,10 @@ static enum state state;
 // I'm opting to favor the Atari meaning. The DEC interpretation is unlikely to
 // be used by anything but maintenance tools, so this should not cause
 // compatibility problems, but please let me know if it does for you.
+//
+// The following sequences are explicitly not implemented:
+// 0x4E - N - Disable Loop-Back, Raster Modes
+// 0x51 - Q - Enable Raster Test
 void
 vt52(unsigned char byte)
 {
@@ -67,6 +73,12 @@ vt52(unsigned char byte)
 		state = STATE_GROUND;
 
 		switch (byte) {
+		case 0x31: // 1 - Enter Graph Drawing Mode
+			warnx("TODO : enter graph drawing mode");
+			break;
+		case 0x32: // 2 - Exit Graph Drawing Mode
+			warnx("TODO : disable graph drawing mode");
+			break;
 		case 0x3C: // < - Enter ANSI Mode
 			mode[DECANM] = true;
 			break;
@@ -80,6 +92,8 @@ vt52(unsigned char byte)
 		case 0x42: // B - Cursor Down
 		case 0x43: // C - Cursor Right
 		case 0x44: // D - Cursor Left
+			if (byte == 0x42 && mode[AUTOPRINT])
+				warnx("TODO : autoprint current line");
 			move_cursor(byte, 1);
 			break;
 		case 0x45: // E - Erase and Return to Home
@@ -112,9 +126,15 @@ vt52(unsigned char byte)
 		case 0x4D: // M - Delete Line
 			delete_line();
 			break;
+		case 0x50: // P - Self-Test
+			self_test();
+			break;
 		case 0x52: // R - Reset
 			reset();
 			mode[DECANM] = false;
+			break;
+		case 0x53: // S - Self-Test
+			self_test();
 			break;
 		case 0x54: // T - Enable Reverse Video
 			cursor.attrs.negative = true;
@@ -122,20 +142,48 @@ vt52(unsigned char byte)
 		case 0x55: // U - Disable Reverse Video
 			cursor.attrs.negative = false;
 			break;
+		case 0x56: // V - Print Line
+			warnx("TODO : print current line");
+			break;
+		case 0x57: // W - Enable Printer-Controller Mode
+			// TODO : start redirecting data directly to the print
+			// backend except for XON and XOFF; if ESC X is
+			// received, send ESC CAN (cancel) to the print backend
+			// and disable printer-controller mode
+			break;
+		case 0x58: // X - Disable Printer-Controller Mode
+			// Already disabled, so just eat the byte.
+			break;
 		case 0x59: // Y - Direct Cursor Address
 			state = STATE_DCA1;
 			break;
 		case 0x5A: // Z - Identify
 			ptwrite("\33/Z");
 			break;
+		case 0x5B: // [ - Enable Hold Screen Mode
+			// TODO : implement hold screen mode
+			mode[HOLD] = true;
+			break;
+		case 0x5C: // \ - Disable Hold Screen Mode
+			mode[HOLD] = false;
+			break;
+		case 0x5D: // ] - Print Screen
+			warnx("TODO : print from top of screen to current line");
+			break;
+		case 0x5E: // ^ - Enable Auto-Print Mode
+			mode[AUTOPRINT] = true;
+			break;
+		case 0x5F: // _ - Disable Auto-Print Mode
+			mode[AUTOPRINT] = false;
+			break;
 		case 0x62: // b - Set Foreground Color
 			state = STATE_SETFG;
 			break;
-		case 0x63: // c - Set Basckground Color
+		case 0x63: // c - Set Background Color
 			state = STATE_SETBG;
 			break;
 		case 0x64: // d - Erase from Upper-Left to Cursor
-			warnx("TODO : erase from upper-left to cursor");
+			erase_display(1);
 			break;
 		case 0x65: // e - Show Cursor
 			mode[DECTCEM] = true;
@@ -144,17 +192,19 @@ vt52(unsigned char byte)
 			mode[DECTCEM] = false;
 			break;
 		case 0x6A: // j - Save Cursor Position
-			warnx("TODO : save cursor position");
+			saved_cursor = cursor;
 			break;
 		case 0x6B: // k - Restore Cursor Position
-			warnx("TODO : restore cursor position");
+			cursor.x = saved_cursor.x;
+			cursor.y = saved_cursor.y;
+			cursor.last_column = saved_cursor.last_column;
 			break;
 		case 0x6C: // l - Move Cursor to Start of Line and Erase Line
 			cursor.x = 0;
 			erase_line(0);
 			break;
 		case 0x6F: // o - Erase from Start of Line to Cursor
-			warnx("TODO : erase from start of line to cursor");
+			erase_line(1);
 			break;
 		case 0x70: // p - Enable Reverse Video
 			cursor.attrs.negative = true;

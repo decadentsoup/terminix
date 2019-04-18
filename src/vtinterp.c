@@ -50,6 +50,7 @@ execute(unsigned char byte)
 		if (cursor.x >= screen_width) cursor.x = screen_width - 1;
 		break;
 	case 0x0A: // Line Feed
+		if (mode[AUTOPRINT]) warnx("TODO : autoprint current line");
 		newline();
 		if (mode[LNM]) cursor.x = 0;
 		break;

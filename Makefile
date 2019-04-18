@@ -9,7 +9,7 @@ SOURCES	= src/opengl.c src/ptmx.c src/screen.c src/terminix.c src/unifont.c \
 
 all: terminix
 
-terminix: $(SOURCES)
+terminix: src/terminix.h $(SOURCES)
 	$(CC) -DPKGVER="\"r`git rev-list --count HEAD`.`git rev-parse --short HEAD`\"" \
 		$(CFLAGS) $(SOURCES) -o terminix -lX11 -lEGL -lGLESv2
 

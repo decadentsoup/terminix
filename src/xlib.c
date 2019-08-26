@@ -24,6 +24,7 @@ int window_width, window_height;
 static Display *display;
 static Atom utf8_string, wm_protocols, wm_delete_window, net_wm_name,
 	net_wm_icon_name;
+static Colormap colormap;
 static Window window;
 static XIM xim;
 static XIC xic;
@@ -124,6 +125,21 @@ wmbell()
 	XBell(display, 0);
 }
 
+void
+wmparsecolor(struct color *colorp, const char *name)
+{
+	XColor color;
+
+	if (XParseColor(display, colormap, name, &color)) {
+		colorp->r = color.red >> 8;
+		colorp->g = color.green >> 8;
+		colorp->b = color.blue >> 8;
+	} else {
+		warnx("X11 failed to parse color name");
+		memset(colorp, 0xFF, sizeof(*colorp));
+	}
+}
+
 static void
 init_x11()
 {
@@ -149,10 +165,12 @@ init_x11()
 	if (!XMatchVisualInfo(display, DefaultScreen(display), 32, TrueColor, &visual_info))
 		die("failed to find compatible visual");
 
+	colormap = XCreateColormap(display, DefaultRootWindow(display), visual_info.visual, AllocNone);
+
 	attrs.background_pixel = 0;
 	attrs.border_pixel = 0;
 	attrs.event_mask = KeyPressMask|KeyReleaseMask|FocusChangeMask;
-	attrs.colormap = XCreateColormap(display, DefaultRootWindow(display), visual_info.visual, AllocNone);
+	attrs.colormap = colormap;
 
 	window = XCreateWindow(display, DefaultRootWindow(display), 0, 0,
 		window_width, window_height, 0, visual_info.depth, InputOutput,

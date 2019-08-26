@@ -46,6 +46,8 @@ extern uint64_t current_time;
 
 // --- window management --- //
 
+struct color { uint8_t r, g, b; };
+
 extern int window_width, window_height;
 
 void wminit(void);
@@ -55,6 +57,7 @@ void wmname(const char *);
 void wmiconname(const char *);
 void wmresize(void);
 void wmbell(void);
+void wmparsecolor(struct color *, const char *);
 
 // --- rendering --- //
 
@@ -107,8 +110,6 @@ enum { FRAME_NONE, FRAME_FRAMED, FRAME_ENCIRCLED };
 enum { TRANSMIT_DISABLED, PAUSED, HOLD, AUTOPRINT, SHIFT_OUT, LNM, DECKPAM,
 	DECCKM, DECANM, DECSCLM, DECSCNM, DECOM, DECAWM, DECARM, DECINLM,
 	DECTCEM, MODE_COUNT };
-
-struct color { uint8_t r, g, b; };
 
 struct cell {
 	struct color	background, foreground;

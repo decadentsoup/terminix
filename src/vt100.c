@@ -67,10 +67,6 @@ static void osc_put(unsigned char);
 static void osc_end(void);
 static void change_colors(const char *);
 static void change_color(int, const char *);
-static void parse_rgbhex(struct color *, const char *);
-static void parse_rgb(struct color *, const char *);
-static uint8_t parse_rgb_part(const char *);
-static void parse_rgbi(struct color *, const char *);
 
 #define COND(condition, action) \
 	do { if (condition) { action; return; } } while(0);
@@ -647,8 +643,6 @@ change_colors(const char *data)
 	}
 }
 
-#define COLOR_IS(prefix) (!strncasecmp(prefix ":", name, sizeof(prefix)))
-
 static void
 change_color(int index, const char *name)
 {
@@ -657,105 +651,5 @@ change_color(int index, const char *name)
 		return;
 	}
 
-	if (name[0] == '#')
-		parse_rgbhex(&palette[index], name);
-	else if (COLOR_IS("rgb"))
-		parse_rgb(&palette[index], name);
-	else if (COLOR_IS("rgbi"))
-		parse_rgbi(&palette[index], name);
-	else if (COLOR_IS("ciexyz"))
-		warnx("TODO : CIEXYZ Specification: %s", name);
-	else if (COLOR_IS("cieuvy"))
-		warnx("TODO : CIEuvY Specification: %s", name);
-	else if (COLOR_IS("ciexyy"))
-		warnx("TODO : CIExyY Specification: %s", name);
-	else if (COLOR_IS("cielab"))
-		warnx("TODO : CIELab Specification: %s", name);
-	else if (COLOR_IS("tekhvc"))
-		warnx("TODO : TekHVC Specification: %s", name);
-	else
-		warnx("TODO : Unknown Color (Named?): %s", name);
-}
-
-static void
-parse_rgbhex(struct color *colorp, const char *text)
-{
-	long long hex;
-
-	hex = strtoll(&text[1], NULL, 16);
-
-	switch (strlen(text) - 1) {
-	case 3:
-		colorp->r = (hex >> 8) * 0x10;
-		colorp->g = (hex >> 4 & 0xF) * 0x10;
-		colorp->b = (hex & 0xF) * 0x10;
-		break;
-	case 6:
-		colorp->r = (hex >> 16);
-		colorp->g = (hex >> 8 & 0xFF);
-		colorp->b = (hex & 0xFF);
-		break;
-	case 9:
-		colorp->r = (hex >> 28);
-		colorp->g = (hex >> 16 & 0xFF);
-		colorp->b = (hex >> 4 & 0xFF);
-		break;
-	case 12:
-		colorp->r = (hex >> 40);
-		colorp->g = (hex >> 24 & 0xFF);
-		colorp->b = (hex >> 8 & 0xFF);
-		break;
-	default:
-		warnx("Invalid color specification: %s", text);
-		break;
-	}
-}
-
-static void
-parse_rgb(struct color *colorp, const char *text)
-{
-	char r[5], g[5], b[5];
-
-	if (sscanf(&text[4], "%4[^/]/%4[^/]/%4[^/]", r, g, b) != 3) {
-		warnx("Invalid color specification: %s", text);
-		return;
-	}
-
-	colorp->r = parse_rgb_part(r);
-	colorp->g = parse_rgb_part(g);
-	colorp->b = parse_rgb_part(b);
-}
-
-static uint8_t
-parse_rgb_part(const char *text)
-{
-	long hex;
-
-	hex = strtol(text, NULL, 16);
-
-	switch (strlen(text)) {
-	case 1: return hex * 0x10;
-	case 2: return hex;
-	case 3: return hex / 0x10;
-	case 4: return hex / 0x100;
-	}
-
-	warnx("Impossible condition met in parse_rgb_part()!");
-	return 0;
-}
-
-static void
-parse_rgbi(struct color *colorp, const char *text)
-{
-	float r, g, b;
-
-	if (sscanf(&text[5], "%f/%f/%f", &r, &g, &b) != 3 ||
-		r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
-		warnx("Invalid color specification: %s", text);
-		return;
-	}
-
-	colorp->r = r * 255;
-	colorp->g = g * 255;
-	colorp->b = b * 255;
+	wmparsecolor(&palette[index], name);
 }

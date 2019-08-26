@@ -14,18 +14,34 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <ctype.h>
+#include <stdio.h>
 #include "terminix.h"
 
 static char sequence_size, sequence_index;
 static long code_point;
 
+static void describe_byte(char *, size_t, unsigned char);
+
 void
 unrecognized_escape(unsigned char intermediate, unsigned char byte)
 {
+	const char *name;
+	char ibuf[16], bbuf[16];
+
+	name = mode[DECANM] ? "ANSI" : "VT52";
+	describe_byte(ibuf, sizeof(ibuf), intermediate);
+	describe_byte(bbuf, sizeof(bbuf), byte);
+
+	warnx("unrecognized escape: mode=%s intermediate=%s byte=%s", name, ibuf, bbuf);
+}
+
+static void
+describe_byte(char *buffer, size_t bufsize, unsigned char byte)
+{
 	if (isprint(byte))
-		warnx("unrecognized escape \"%c%c\"", intermediate, byte);
+		snprintf(buffer, bufsize, "\"%c\"", byte);
 	else
-		warnx("unrecognized escape \"%c\" 0x%X", intermediate, byte);
+		snprintf(buffer, bufsize, "0x%X", byte);
 }
 
 void

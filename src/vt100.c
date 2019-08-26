@@ -256,8 +256,13 @@ esc_dispatch(unsigned char byte)
 	case 0x63: // c - RIS - Reset To Initial State
 		reset();
 		break;
+	case 0x78: // x - DECREPTPARM/DECREQTPARM - Report/Request Terminal Parameters
+		warnx("TODO : implement DECREPTPARM/DECREQTPARM");
+		break;
+	case 0x79: // y - DECTST - Invoke Confidence Test
+		warnx("TODO : implement DECTST");
+		break;
 	default:
-		warnx("VT100");
 		unrecognized_escape(intermediate, byte);
 		break;
 	}
@@ -440,6 +445,7 @@ set_mode(bool value)
 			case 2: mode[DECANM] = value; break;
 			case 3: resize(value ? 132 : 80, screen_height); break;
 			// case 4: mode[DECSCLM] = value; break;
+			case 4: warnx("TODO : implement DECSCLM"); break;
 			case 5: mode[DECSCNM] = value; break;
 			case 6:
 				warpto(0, (mode[DECOM] = value) ? scroll_top : 0);
@@ -447,6 +453,7 @@ set_mode(bool value)
 			case 7: mode[DECAWM] = value; break;
 			case 8: mode[DECARM] = value; break;
 			// case 9: mode[DECINLM] = value; break;
+			case 9: warnx("TODO : implement DECINLM"); break;
 			case 25: mode[DECTCEM] = value; break;
 			default:
 				warnx("set mode ?%i=%i", parameters[i], value);

@@ -213,7 +213,7 @@ read_ptmx()
 	}
 
 	for (i = 0; i < n; i++)
-		if (mode[DECANM])
+		if (getmode(DECANM))
 			vt100(buffer[i]);
 		else
 			vt52(buffer[i]);

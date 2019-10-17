@@ -117,7 +117,7 @@ const struct cell default_attrs = {
 };
 
 struct color palette[256];
-bool mode[MODE_COUNT];
+int mode;
 struct cursor cursor, saved_cursor;
 bool *tabstops;
 struct line **lines;
@@ -172,12 +172,7 @@ reset()
 
 	memcpy(palette, default_palette, sizeof(palette));
 
-	memset(mode, 0, sizeof(mode));
-	mode[DECANM] = true;
-	mode[DECSCLM] = true;
-	mode[DECARM] = true;
-	mode[DECINLM] = true;
-	mode[DECTCEM] = true;
+	mode = DECANM|DECSCLM|DECARM|DECINLM|DECTCEM;
 
 	memset(&cursor, 0, sizeof(cursor));
 	cursor.attrs = default_attrs;
@@ -192,6 +187,16 @@ reset()
 	saved_cursor = cursor;
 	scroll_top = 0;
 	scroll_bottom = screen_height - 1;
+}
+
+void
+screen_align()
+{
+	int x, y;
+
+	for (y = 0; y < screen_height; y++)
+		for (x = 0; x < screen_width; x++)
+			lines[y]->cells[x].code_point = 'E';
 }
 
 void
@@ -226,6 +231,16 @@ delete_line()
 
 	for (i = 0; i < screen_width; i++)
 		lines[scroll_bottom]->cells[i] = cursor.attrs;
+}
+
+void
+tab()
+{
+	for (cursor.x++; cursor.x < screen_width && !tabstops[cursor.x];
+		cursor.x++);
+
+	if (cursor.x >= screen_width)
+		cursor.x = screen_width - 1;
 }
 
 void
@@ -288,9 +303,11 @@ void
 warpto(int x, int y)
 {
 	int miny, maxy;
+	bool decom;
 
-	miny = mode[DECOM] ? scroll_top : 0;
-	maxy = mode[DECOM] ? scroll_bottom : screen_height - 1;
+	decom = getmode(DECOM);
+	miny = decom ? scroll_top : 0;
+	maxy = decom ? scroll_bottom : screen_height - 1;
 
 	if (x < 0) x = 0; else if (x >= screen_width) x = screen_width - 1;
 	if (y < miny) y = miny; else if (y > maxy) y = maxy;
@@ -353,10 +370,18 @@ revline()
 {
 	cursor.last_column = false;
 
+	// TODO : change to move_cursor?
 	if (cursor.y > scroll_top)
 		warpto(cursor.x, cursor.y - 1);
 	else
 		scrolldown();
+}
+
+void
+nextline()
+{
+	cursor.x = 0;
+	newline();
 }
 
 void
@@ -376,8 +401,10 @@ putch(long ch)
 	*cell = cursor.attrs;
 
 	if (!cursor.conceal) {
-		if ((charset = cursor.charset[mode[SHIFT_OUT]]) &&
-			ch >= charset[0] && ch <= charset[1])
+		charset = cursor.logical_charsets[
+			cursor.active_charsets[ch < 128 ? GL : GR]];
+
+		if (charset && ch >= charset[0] && ch <= charset[1])
 			ch = charset[ch - charset[0] + 2];
 
 		cell->code_point = ch;
@@ -387,7 +414,7 @@ putch(long ch)
 		((glyph = find_glyph(ch)) && glyph[0] == '\2' ? 2 : 1) : 1;
 
 	if (cursor.x + increment >= screen_width) {
-		if (mode[DECAWM]) cursor.last_column = true;
+		if (getmode(DECAWM)) cursor.last_column = true;
 	} else {
 		cursor.x += increment;
 	}

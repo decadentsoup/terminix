@@ -80,19 +80,20 @@ vt52(unsigned char byte)
 			warnx("TODO : disable graph drawing mode");
 			break;
 		case 0x3C: // < - Enter ANSI Mode
-			mode[DECANM] = true;
+			setmode(VT52GFX, false);
+			setmode(DECANM, true);
 			break;
 		case 0x3D: // = - Enter Alternative Keypad Mode
-			mode[DECKPAM] = true;
+			setmode(DECKPAM, true);
 			break;
 		case 0x3E: // > - Exit Alternative Keypad Mode
-			mode[DECKPAM] = false;
+			setmode(DECKPAM, false);
 			break;
 		case 0x41: // A - Cursor Up
 		case 0x42: // B - Cursor Down
 		case 0x43: // C - Cursor Right
 		case 0x44: // D - Cursor Left
-			if (byte == 0x42 && mode[AUTOPRINT])
+			if (byte == 0x42 && getmode(AUTOPRINT))
 				warnx("TODO : autoprint current line");
 			move_cursor(byte, 1);
 			break;
@@ -102,10 +103,10 @@ vt52(unsigned char byte)
 			erase_display(0);
 			break;
 		case 0x46: // F - Enter Graphics Mode
-			cursor.charset[mode[SHIFT_OUT]] = charset_vt52_graphics;
+			setmode(VT52GFX, true);
 			break;
 		case 0x47: // G - Exit Graphics Mode
-			cursor.charset[mode[SHIFT_OUT]] = NULL;
+			setmode(VT52GFX, false);
 			break;
 		case 0x48: // H - Cursor to Home
 			cursor.x = 0;
@@ -131,7 +132,7 @@ vt52(unsigned char byte)
 			break;
 		case 0x52: // R - Reset
 			reset();
-			mode[DECANM] = false;
+			setmode(DECANM, false);
 			break;
 		case 0x53: // S - Self-Test
 			self_test();
@@ -161,20 +162,19 @@ vt52(unsigned char byte)
 			ptwrite("\33/Z");
 			break;
 		case 0x5B: // [ - Enable Hold Screen Mode
-			// TODO : implement hold screen mode
-			mode[HOLD] = true;
+			warnx("TODO : Enable Hold Screen Mode");
 			break;
 		case 0x5C: // \ - Disable Hold Screen Mode
-			mode[HOLD] = false;
+			warnx("TODO : Disable Hold Screen Mode");
 			break;
 		case 0x5D: // ] - Print Screen
 			warnx("TODO : print from top of screen to current line");
 			break;
 		case 0x5E: // ^ - Enable Auto-Print Mode
-			mode[AUTOPRINT] = true;
+			setmode(AUTOPRINT, true);
 			break;
 		case 0x5F: // _ - Disable Auto-Print Mode
-			mode[AUTOPRINT] = false;
+			setmode(AUTOPRINT, false);
 			break;
 		case 0x62: // b - Set Foreground Color
 			state = STATE_SETFG;
@@ -186,10 +186,10 @@ vt52(unsigned char byte)
 			erase_display(1);
 			break;
 		case 0x65: // e - Show Cursor
-			mode[DECTCEM] = true;
+			setmode(DECTCEM, true);
 			break;
 		case 0x66: // f - Hide Cursor
-			mode[DECTCEM] = false;
+			setmode(DECTCEM, false);
 			break;
 		case 0x6A: // j - Save Cursor Position
 			saved_cursor = cursor;
@@ -213,10 +213,10 @@ vt52(unsigned char byte)
 			cursor.attrs.negative = false;
 			break;
 		case 0x76: // v - Enable Autowrap
-			mode[DECAWM] = true;
+			setmode(DECAWM, true);
 			break;
 		case 0x77: // w - Disable Autowrap
-			mode[DECAWM] = false;
+			setmode(DECAWM, false);
 			break;
 		default:
 			unrecognized_escape(0, byte);

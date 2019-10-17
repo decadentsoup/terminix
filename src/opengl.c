@@ -251,7 +251,7 @@ gldraw()
 				y * CHARHEIGHT, lines[y]->dimensions,
 				&lines[y]->cells[x]);
 
-	if (mode[DECTCEM] && !(timer_count / 2 % 2))
+	if (getmode(DECTCEM) && !(timer_count / 2 % 2))
 		render_glyph(buffer, default_attrs.fg_truecolor ?
 			default_attrs.foreground : palette[default_attrs.foreground.r],
 			cursor.x * CHARWIDTH * (lines[cursor.y]->dimensions ? 2 : 1),
@@ -284,7 +284,7 @@ render_cell(unsigned char *buffer, int px, int py, char dim, struct cell *cell)
 	bg = cell->bg_truecolor ? cell->background : palette[cell->background.r];
 	fg = cell->fg_truecolor ? cell->foreground : palette[cell->foreground.r];
 
-	if (mode[DECSCNM] ^ cell->negative) {
+	if (getmode(DECSCNM) ^ cell->negative) {
 		swap = bg;
 		bg = fg;
 		fg = swap;

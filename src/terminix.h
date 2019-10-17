@@ -107,9 +107,34 @@ enum { BLINK_NONE, BLINK_SLOW, BLINK_FAST };
 enum { UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE };
 enum { FRAME_NONE, FRAME_FRAMED, FRAME_ENCIRCLED };
 
-enum { TRANSMIT_DISABLED, PAUSED, HOLD, AUTOPRINT, SHIFT_OUT, LNM, DECKPAM,
-	DECCKM, DECANM, DECSCLM, DECSCNM, DECOM, DECAWM, DECARM, DECINLM,
-	DECTCEM, MODE_COUNT };
+enum {
+	XOFF	= 1 <<  0, // Data transmission disabled by an XOFF octet.
+	PAUSED	= 1 <<  1, // Used by xlib.c to track sent XON/XOFF signals.
+	AUTOPRINT=1 <<  2, // TODO : Autoprint line on LF, FF, VT, or DECAWM
+	VT52GFX	= 1 <<  3, // VT52 Graphic Character Set Enabled
+	S8C1T	= 1 <<  4, // Send 8-bit control sequences (TODO : implement)
+	LNM	= 1 <<  5, // Line Feed/New Line Mode
+	DECKPAM	= 1 <<  6, // Keypad Application Mode
+	DECCKM	= 1 <<  7, // Cursor Keys Mode
+	DECANM	= 1 <<  8, // ANSI/VT52 Mode
+	DECSCLM	= 1 <<  9, // Scrolling Mode (TODO : implement)
+	DECSCNM	= 1 << 10, // Screen Mode
+	DECOM	= 1 << 11, // Origin Mode
+	DECAWM	= 1 << 12, // Autowrap Mode
+	DECARM	= 1 << 13, // Auto Repeat Mode
+	DECINLM	= 1 << 14, // Interlace Mode (TODO : implement)
+	DECTCEM	= 1 << 15  // Text Cursor Enable Mode
+};
+
+// From the days of yore, when Unicode wasn't available on terminals and
+// programmers had to constantly switch between character sets. GL and GR refer
+// to the "left" and "right" parts of the glyph table, meaning octets 0-127 and
+// 128-255, respecitvely. G0, G1, G2, and G3 are the logical glyph tables. To
+// set the glyphs for 0-127, you would first assign the physical glyph table
+// (f.e. ISO Latin-1) to a logical glyph table (f.e. G2) and then shift it into
+// the right in-use table, GR. It's less complicated than it sounds!
+enum { GL, GR };
+enum { G0, G1, G2, G3 };
 
 struct cell {
 	struct color	background, foreground;
@@ -126,7 +151,8 @@ struct line {
 
 struct cursor {
 	struct cell	 attrs;
-	const uint32_t	*charset[2];
+	const uint32_t	*logical_charsets[4];
+	int		 active_charsets[2];
 	short		 x, y;
 	bool		 conceal, last_column;
 };
@@ -134,12 +160,16 @@ struct cursor {
 #define LINE_SIZE(width) \
 	(sizeof(struct line) + (width) * sizeof(struct cell))
 
-extern const uint32_t charset_united_kingdom[], charset_dec_graphics[],
+// NOTE: instead of charset_ascii we just use NULL.
+extern const uint32_t
+	charset_united_kingdom[],
+	charset_dec_graphics[],
 	charset_vt52_graphics[];
+
 extern const struct cell default_attrs;
 
 extern struct color palette[256];
-extern bool mode[MODE_COUNT];
+extern int mode;
 extern struct cursor cursor, saved_cursor;
 extern bool *tabstops;
 extern struct line **lines;
@@ -148,6 +178,8 @@ extern short screen_width, screen_height, scroll_top, scroll_bottom;
 void deinit_screen(void);
 void resize(int, int);
 void reset(void);
+void screen_align(void);
+void tab(void);
 void insert_line(void);
 void delete_line(void);
 void erase_display(int);
@@ -158,6 +190,62 @@ void scrollup(void);
 void scrolldown(void);
 void newline(void);
 void revline(void);
+void nextline(void);
 void putch(long);
+
+static inline bool
+getmode(int flag)
+{
+	return mode & flag;
+}
+
+static inline bool
+setmode(int flag, bool value)
+{
+	value ? (mode |= flag) : (mode &= ~flag);
+	return value;
+}
+
+static inline void
+setlinea(int dimensions)
+{
+	lines[cursor.y]->dimensions = dimensions;
+}
+
+static inline void
+setcharset(int logical_charset, const uint32_t *physical_charset)
+{
+	cursor.logical_charsets[logical_charset] = physical_charset;
+}
+
+static inline void
+singleshift(int logical_charset __attribute__((unused)))
+{
+	warnx("TODO : implement single shifts");
+}
+
+static inline void
+lockingshift(int active_charset, int logical_charset)
+{
+	cursor.active_charsets[active_charset] = logical_charset;
+}
+
+static inline void
+save_cursor()
+{
+	saved_cursor = cursor;
+}
+
+static inline void
+restore_cursor()
+{
+	cursor = saved_cursor;
+}
+
+static inline void
+settab()
+{
+	tabstops[cursor.x] = true;
+}
 
 #endif // !TERMINIX_H

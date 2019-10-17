@@ -158,8 +158,11 @@ get_time()
 static void
 handle_exit()
 {
-	glkill();
+	// NOTE : wmkill() *MUST* be called before glkill().
+	// Some EGL implementations register exit callbacks with Xlib. If we
+	// kill Xlib before EGL, we'll get a segmentation fault at exit.
 	wmkill();
+	glkill();
 	ptkill();
 	deinit_screen();
 }

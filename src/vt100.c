@@ -53,8 +53,8 @@ static const char DEVICE_ATTRS[] = "\x1B\x5B\x3F\x31\x3B\x37\x63";
 static void collect(unsigned char);
 static void param(unsigned char);
 static void esc_dispatch(unsigned char);
-static void esc_dispatch_private(unsigned char);
-static void esc_dispatch_scs(unsigned char);
+static const uint32_t *get_charset_94(unsigned char, unsigned char);
+static const uint32_t *get_charset_96(unsigned char);
 static void csi_dispatch(unsigned char);
 static void csi_dispatch_private(unsigned char);
 static void delete_character(void);
@@ -76,8 +76,17 @@ static void change_color(int, const char *);
 void
 vt100(unsigned char byte)
 {
+	// TODO : https://www.cl.cam.ac.uk/~mgk25/unicode.html#term
+	// Should we process UTF-8 data before passing it to this state machine?
+
+	// TODO : cleanup to the way OSC strings are handled to be more
+	// compliant with the behavior of DEC terminals
+
+	// TODO : support for 8-bit controls when enabled
+	// NOTE : 8-bit and UTF-8 cannot work at the same time
+
 	// substitute and cancel controls
-	// TODO : should this execute an OSC instruction?
+	// TODO : VT520 does not print 0xFFFD for CAN, only SUB
 	if (byte == 0x18 || byte == 0x1A) {
 		NEXT(GROUND);
 		putch(0xFFFD);
@@ -93,7 +102,7 @@ vt100(unsigned char byte)
 
 	switch (state) {
 	case STATE_GROUND:
-		COND(byte <= 0x1F || byte == 0x7F, execute(byte));
+		COND(byte <= 0x1F, execute(byte));
 		print(byte);
 		break;
 	case STATE_ESCAPE:
@@ -194,120 +203,158 @@ param(unsigned char byte)
 	parameters[parameter_index] = param;
 }
 
+// [1] XTerm*hpLowerleftBugCompat
+// [2] DECREPTPARM/DECREQTPARM
 static void
 esc_dispatch(unsigned char byte)
 {
 	NEXT(GROUND);
 
-	if (intermediate == 0x23) {
-		esc_dispatch_private(byte);
+	switch (intermediate) {
+	case 0:
+		switch (byte) {
+		/*DECBI  */ case '6': warnx("TODO : Back Index"); return;
+		/*DECSC  */ case '7': save_cursor(); return;
+		/*DECRC  */ case '8': restore_cursor(); return;
+		/*DECFI  */ case '9': warnx("TODO : Forward Index"); return;
+		/*DECANM */ case '<': /* nothing to do */ return;
+		/*DECKPAM*/ case '=': setmode(DECKPAM, true); return;
+		/*DECKPNM*/ case '>': setmode(DECKPAM, false); return;
+		/*IND    */ case 'D': newline(); return;
+		/*NEL    */ case 'E': nextline(); return;
+		/*[1]    */ case 'F': warpto(0, scroll_bottom); return;
+		/*HTS    */ case 'H': settab(); return;
+		/*SCS    */ case 'I': warnx("TODO : Designate Character Set"); return;
+		/*RI     */ case 'M': revline(); return;
+		/*SS2    */ case 'N': singleshift(G2); return;
+		/*SS3    */ case 'O': singleshift(G3); return;
+		/*SCODFK */ case 'Q': warnx("TODO : SCO Define Function Key"); return;
+		/*DECID  */ case 'Z': ptwrite("%s", DEVICE_ATTRS); return;
+		/*ST     */ case'\\': /* nothing to do */ return;
+		/*RIS    */ case 'c': reset(); return;
+		/*LS2    */ case 'n': lockingshift(GL, G2); return;
+		/*LS3    */ case 'o': lockingshift(GL, G3); return;
+		/*[2]    */ case 'x': warnx("TODO : implement DECRE(P/Q)TPARM"); return;
+		/*DECTST */ case 'y': warnx("TODO : implement DECTST"); return;
+		/*LS3R   */ case '|': lockingshift(GR, G3); return;
+		/*LS2R   */ case '}': lockingshift(GR, G2); return;
+		/*LS1R   */ case '~': lockingshift(GR, G1); return;
+		}
+		break;
+	case ' ':
+		switch (byte) {
+		/*S7C1T*/ case 'F': setmode(S8C1T, false); return;
+		/*S8C1T*/ case 'G': setmode(S8C1T, true); return;
+		}
+		break;
+	case '#':
+		switch (byte) {
+		/*DECDHL*/ case '3': setlinea(DOUBLE_HEIGHT_TOP); return;
+		/*DECDHL*/ case '4': setlinea(DOUBLE_HEIGHT_BOTTOM); return;
+		/*DECSWL*/ case '5': setlinea(SINGLE_WIDTH); return;
+		/*DECDWL*/ case '6': setlinea(DOUBLE_WIDTH); return;
+		/*DECALN*/ case '8': screen_align(); return;
+		}
+		break;
+	case '(':
+		setcharset(G0, get_charset_94(0, byte));
+		return;
+	case ')':
+		setcharset(G1, get_charset_94(0, byte));
+		return;
+	case '*':
+		setcharset(G2, get_charset_94(0, byte));
+		return;
+	case '+':
+		setcharset(G3, get_charset_94(0, byte));
+		return;
+	case '-':
+		setcharset(G1, get_charset_96(byte));
+		return;
+	case '.':
+		setcharset(G2, get_charset_96(byte));
+		return;
+	case '/':
+		setcharset(G3, get_charset_96(byte));
 		return;
 	}
 
-	if (intermediate == 0x28 || intermediate == 0x29) {
-		esc_dispatch_scs(byte);
-		return;
-	}
-
-	if (intermediate) {
-		unrecognized_escape(intermediate, byte);
-		return;
-	}
-
-	switch (byte) {
-	case 0x37: // 7 - DECSC - Save Cursor
-		saved_cursor = cursor;
-		break;
-	case 0x38: // 8 - DECRC - Restore Cursor
-		cursor = saved_cursor;
-		break;
-	case 0x3D: // = - DECKPAM - Keypad Application Mode
-		mode[DECKPAM] = true;
-		break;
-	case 0x3E: // > - DECKPNM - Keypad Numeric Mode
-		mode[DECKPAM] = false;
-		break;
-	case 0x44: // D - IND - Index
-		newline();
-		break;
-	case 0x45: // E - NEL - Next Line
-		cursor.x = 0;
-		newline();
-		break;
-	case 0x46: // F - XTerm*hpLowerleftBugCompat
-		cursor.x = 0;
-		cursor.y = scroll_bottom;
-		break;
-	case 0x48: // H - HTS - Horizontal Tabulation Set
-		tabstops[cursor.x] = true;
-		break;
-	case 0x4D: // M - RI - Reverse Index
-		revline();
-		break;
-	case 0x5A: // Z - DECID - Identify Terminal
-		ptwrite("%s", DEVICE_ATTRS);
-		break;
-	case 0x5C: // \ - ST - String Terminator
-		break; // nothing to do
-	case 0x63: // c - RIS - Reset To Initial State
-		reset();
-		break;
-	case 0x78: // x - DECREPTPARM/DECREQTPARM - Report/Request Terminal Parameters
-		warnx("TODO : implement DECREPTPARM/DECREQTPARM");
-		break;
-	case 0x79: // y - DECTST - Invoke Confidence Test
-		warnx("TODO : implement DECTST");
-		break;
-	default:
-		unrecognized_escape(intermediate, byte);
-		break;
-	}
+	unrecognized_escape(intermediate, byte);
 }
 
-static void
-esc_dispatch_private(unsigned char byte)
+static const uint32_t *
+get_charset_94(unsigned char c1, unsigned char c2)
 {
-	int x, y;
-
-	switch (byte) {
-	case 0x33: // 3 - DECDHL - Double-Height Line (Top)
-		lines[cursor.y]->dimensions = DOUBLE_HEIGHT_TOP;
+	switch (c1) {
+	case 0:
+		switch (c2) {
+		case '0': return charset_dec_graphics;
+		case '1': warnx("TODO : DEC Alternate Character ROM Standard Characters"); return NULL;
+		case '2': warnx("TODO : DEC Alternate Character ROM Special Characters"); return NULL;
+		// case '5': return finnish;
+		// case '6': return norweigian_danish;
+		// case '7': return swedish;
+		// case '9': return french_canadian;
+		case 'A': return charset_united_kingdom;
+		case 'B': return NULL; // ASCII
+		// case 'C': return finnish;
+		// case '>': return dec_technical_character_set;
+		// case 'E': return norweigian_danish;
+		// case 'H': return swedish;
+		// case 'K': return german;
+		// case '`': return norweigian_danish;
+		// case 'Q': return french_canadian;
+		// case 'R': return french;
+		// case '=': return swiss;
+		// case '<': return user_preferred_supplemental_set;
+		// case 'Y': return italian;
+		// case 'Z': return spanish;
+		}
 		break;
-	case 0x34: // 4 - DECDHL - Double-Height Line (Bottom)
-		lines[cursor.y]->dimensions = DOUBLE_HEIGHT_BOTTOM;
-		break;
-	case 0x35: // 5 - DECSWL - Single-Width Line
-		lines[cursor.y]->dimensions = SINGLE_WIDTH;
-		break;
-	case 0x36: // 6 - DECDWL - Double-Width Line
-		lines[cursor.y]->dimensions = DOUBLE_WIDTH;
-		break;
-	case 0x38: // 8 - DECALN - Screen Alignment Display
-		for (y = 0; y < screen_height; y++)
-			for (x = 0; x < screen_width; x++)
-				lines[y]->cells[x].code_point = 0x45;
-		break;
-	default:
-		unrecognized_escape(intermediate, byte);
-		break;
+	// case '"':
+	// 	switch (c2) {
+	// 	case '4': return dec_hebrew;
+	// 	case '>': return greek;
+	// 	case '?': return dec_greek;
+	// 	}
+	// 	break;
+	// case '%':
+	// 	switch (c2) {
+	// 	case '0': return dec_turkish;
+	// 	case '2': return turkish;
+	// 	case '3': return scs;
+	// 	case '5': return dec_supplemental;
+	// 	case '6': return portuguese;
+	// 	case '=': return hebrew;
+	// 	}
+	// 	break;
+	// case '&':
+	// 	switch (c2) {
+	// 	case '4': return dec_cyrillic;
+	// 	case '5': return russian;
+	// 	}
+	// 	break;
 	}
+
+	warnx("Unrecognized 94-character set: '%c%c'", c1, c2);
+	return NULL; // TODO : should we do a no-op instead?
 }
 
-static void
-esc_dispatch_scs(unsigned char byte)
+static const uint32_t *
+get_charset_96(unsigned char c)
 {
-	const uint32_t *charset;
+	// switch (c) {
+	// case 'A': return iso_latin1_supplemental;
+	// case 'B': return iso_latin2_supplemental;
+	// case 'F': return iso_greek_supplemental;
+	// case 'H': return iso_hebrew_supplemental;
+	// case 'L': return iso_latin_cyrillic;
+	// case 'M': return iso_latin5_supplemental;
+	// case '<': return user_preferred_supplemental;
+	// }
 
-	switch (byte) {
-	case 0x30: charset = charset_dec_graphics; break;
-	case 0x31: charset = NULL; break; // Alternate ROM Standard
-	case 0x32: charset = NULL; break; // Alternate ROM Graphics
-	case 0x41: charset = charset_united_kingdom; break;
-	case 0x42: charset = NULL; break; // ASCII
-	default: charset = NULL; break;
-	}
-
-	cursor.charset[intermediate == 0x28 ? 0 : 1] = charset;
+	warnx("Unrecognized 96-character set: '%c'", c);
+	return NULL; // TODO : should we do a no-op instead?
 }
 
 static void
@@ -335,7 +382,7 @@ csi_dispatch(unsigned char byte)
 		break;
 	case 0x48: // H - CUP - Cursor Position
 	case 0x66: // f - HVP - Horizontal and Vertical Position
-		warpto(parameters[1] - 1, parameters[0] - 1 + (mode[DECOM] ? scroll_top : 0));
+		warpto(parameters[1] - 1, parameters[0] - 1 + (getmode(DECOM) ? scroll_top : 0));
 		break;
 	case 0x4A: // J - ED - Erase In Display
 		erase_display(parameters[0]);
@@ -379,7 +426,7 @@ csi_dispatch(unsigned char byte)
 		if (parameters[0] < parameters[1]) {
 			scroll_top = parameters[0] - 1;
 			scroll_bottom = parameters[1] - 1;
-			warpto(0, mode[DECOM] ? scroll_top : 0);
+			warpto(0, getmode(DECOM) ? scroll_top : 0);
 		}
 		break;
 	default:
@@ -432,25 +479,23 @@ set_mode(bool value)
 	for (i = 0; i <= parameter_index; i++)
 		if (!intermediate) {
 			if (parameters[i] == 20)
-				mode[LNM] = value;
+				setmode(LNM, value);
 			else
 				warnx("set mode %i=%i", parameters[i], value);
 		} else if (intermediate == 0x3F) {
 			switch (parameters[i]) {
-			case 1: mode[DECCKM] = value; break;
-			case 2: mode[DECANM] = value; break;
+			case 1: setmode(DECCKM, value); break;
+			case 2: setmode(DECANM, value); break;
 			case 3: resize(value ? 132 : 80, screen_height); break;
-			// case 4: mode[DECSCLM] = value; break;
-			case 4: warnx("TODO : implement DECSCLM"); break;
-			case 5: mode[DECSCNM] = value; break;
+			case 4: setmode(DECSCLM, value); break;
+			case 5: setmode(DECSCNM, value); break;
 			case 6:
-				warpto(0, (mode[DECOM] = value) ? scroll_top : 0);
+				warpto(0, setmode(DECOM, value) ? scroll_top : 0);
 				break;
-			case 7: mode[DECAWM] = value; break;
-			case 8: mode[DECARM] = value; break;
-			// case 9: mode[DECINLM] = value; break;
-			case 9: warnx("TODO : implement DECINLM"); break;
-			case 25: mode[DECTCEM] = value; break;
+			case 7: setmode(DECAWM, value); break;
+			case 8: setmode(DECARM, value); break;
+			case 9: setmode(DECINLM, value); break;
+			case 25: setmode(DECTCEM, value); break;
 			default:
 				warnx("set mode ?%i=%i", parameters[i], value);
 				break;
@@ -569,7 +614,7 @@ device_status_report()
 	else if (parameters[0] == 6)
 		// Cursor Position Report
 		ptwrite("\x1B\x5B%d\x3B%d\x52",
-			(mode[DECOM] ? cursor.y - scroll_top : cursor.y) + 1,
+			(getmode(DECOM) ? cursor.y - scroll_top : cursor.y) + 1,
 			cursor.x + 1);
 }
 

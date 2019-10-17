@@ -28,7 +28,7 @@ unrecognized_escape(unsigned char intermediate, unsigned char byte)
 	const char *name;
 	char ibuf[16], bbuf[16];
 
-	name = mode[DECANM] ? "ANSI" : "VT52";
+	name = getmode(DECANM) ? "ANSI" : "VT52";
 	describe_byte(ibuf, sizeof(ibuf), intermediate);
 	describe_byte(bbuf, sizeof(bbuf), byte);
 
@@ -47,6 +47,8 @@ describe_byte(char *buffer, size_t bufsize, unsigned char byte)
 void
 execute(unsigned char byte)
 {
+	// TODO : move implementation details to screen.c
+
 	switch (byte) {
 	case 0x05: // Enquiry
 		ptwrite("%s", answerback);
@@ -55,38 +57,46 @@ execute(unsigned char byte)
 		wmbell();
 		break;
 	case 0x08: // Backspace
-		if (cursor.x > 0) {
-			cursor.x--;
-			cursor.last_column = false;
-		}
+		move_cursor(0x44, 1);
 		break;
 	case 0x09: // Horizontal Tab
-		for (cursor.x++; cursor.x < screen_width && !tabstops[cursor.x];
-			cursor.x++);
-		if (cursor.x >= screen_width) cursor.x = screen_width - 1;
+		tab();
 		break;
 	case 0x0A: // Line Feed
 	case 0x0B: // Vertical Tab
 	case 0x0C: // Form Feed
-		if (mode[AUTOPRINT]) warnx("TODO : autoprint current line");
 		newline();
-		if (mode[LNM]) cursor.x = 0;
+		if (getmode(LNM)) cursor.x = 0;
 		break;
 	case 0x0D: // Carriage Return
 		cursor.x = 0;
 		break;
 	case 0x0E: // Shift Out
-		mode[SHIFT_OUT] = true;
+		lockingshift(GL, G1);
 		break;
 	case 0x0F: // Shift In
-		mode[SHIFT_OUT] = false;
+		lockingshift(GL, G0);
 		break;
 	case 0x11: // Device Control 1 - XON
-		mode[TRANSMIT_DISABLED] = false;
+		setmode(XOFF, false);
 		break;
 	case 0x13: // Device Control 3 - XOFF
-		mode[TRANSMIT_DISABLED] = true;
+		setmode(XOFF, true);
 		break;
+	// case 0x84: // Index
+	// case 0x85: // Next Line
+	// case 0x88: // Horizontal Tab Set
+	// case 0x8D: // Reverse Index
+	// case 0x8E: // Single Shift 2
+	// case 0x8F: // Single Shift 3
+	// case 0x90: // Device Control String
+	// case 0x98: // Start of String
+	// case 0x9A: // DECID
+	// case 0x9B: // Control Sequence Introducer
+	// case 0x9C: // String Terminator
+	// case 0x9D: // Operating System Command
+	// case 0x9E: // Privacy Message
+	// case 0x9F: // Application Program Command
 	}
 }
 

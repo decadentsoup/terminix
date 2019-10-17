@@ -265,7 +265,7 @@ handle_key(XKeyEvent *event)
 		return;
 	}
 
-	if (status == XLookupNone || mode[TRANSMIT_DISABLED] || (!mode[DECARM] && keystate[event->keycode]))
+	if (status == XLookupNone || getmode(XOFF) || (!getmode(DECARM) && keystate[event->keycode]))
 		return;
 
 	if (status == XLookupKeySym || status == XLookupBoth) {
@@ -274,7 +274,8 @@ handle_key(XKeyEvent *event)
 			if (event->state & ShiftMask)
 				warnx("TODO : transmit answerback");
 			else
-				ptwrite((mode[PAUSED] = !mode[PAUSED]) ? "\x13" : "\x11");
+				// TODO : check this line still works
+				ptwrite((mode ^= PAUSED) & PAUSED ? "\x13" : "\x11");
 			return;
 		case XK_Break: ptbreak(event->state & ShiftMask); break;
 		case XK_Print: warnx("TODO : print screen"); break;
@@ -284,22 +285,22 @@ handle_key(XKeyEvent *event)
 		case XK_End: ptwrite("\33[4~"); return;
 		case XK_Page_Up: ptwrite("\33[5~"); return;
 		case XK_Page_Down: ptwrite("\33[6~"); return;
-		case XK_F1: ptwrite(mode[DECANM] ? "\33OP" : "\33P"); return;
-		case XK_F2: ptwrite(mode[DECANM] ? "\33OQ" : "\33Q"); return;
-		case XK_F3: ptwrite(mode[DECANM] ? "\33OR" : "\33R"); return;
-		case XK_F4: ptwrite(mode[DECANM] ? "\33OS" : "\33S"); return;
+		case XK_F1: ptwrite(getmode(DECANM) ? "\33OP" : "\33P"); return;
+		case XK_F2: ptwrite(getmode(DECANM) ? "\33OQ" : "\33Q"); return;
+		case XK_F3: ptwrite(getmode(DECANM) ? "\33OR" : "\33R"); return;
+		case XK_F4: ptwrite(getmode(DECANM) ? "\33OS" : "\33S"); return;
 		// TODO : the rest of the function keys
 		}
 
 		if (keysym >= XK_Left && keysym <= XK_Down) {
-			if (!mode[DECANM])
+			if (!getmode(DECANM))
 				switch (keysym) {
 				case XK_Up: ptwrite("\33A"); break;
 				case XK_Down: ptwrite("\33B"); break;
 				case XK_Right: ptwrite("\33C"); break;
 				case XK_Left: ptwrite("\33D"); break;
 				}
-			else if (mode[DECCKM])
+			else if (getmode(DECCKM))
 				switch (keysym) {
 				case XK_Up: ptwrite("\33OA"); break;
 				case XK_Down: ptwrite("\33OB"); break;
@@ -317,7 +318,7 @@ handle_key(XKeyEvent *event)
 			return;
 		}
 
-		if (mode[DECKPAM])
+		if (getmode(DECKPAM))
 			switch (keysym) {
 			case XK_KP_0: kpam('p'); return;
 			case XK_KP_1: kpam('q'); return;
@@ -342,7 +343,7 @@ handle_key(XKeyEvent *event)
 			if (event->state & ShiftMask)
 				ptwrite("\n");
 			else
-				ptwrite(mode[LNM] ? "\r\n" : "\r");
+				ptwrite(getmode(LNM) ? "\r\n" : "\r");
 		} else {
 			ptwrite("%s", buffer);
 		}
@@ -352,5 +353,5 @@ handle_key(XKeyEvent *event)
 static void
 kpam(char c)
 {
-	ptwrite("\33%c%c", mode[DECANM] ? 'O' : '?', c);
+	ptwrite("\33%c%c", getmode(DECANM) ? 'O' : '?', c);
 }

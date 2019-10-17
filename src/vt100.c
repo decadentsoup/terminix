@@ -379,6 +379,7 @@ get_charset_96(unsigned char c)
 	return NULL; // TODO : should we do a no-op instead?
 }
 
+#define DEFAULT(i, default) (parameters[(i)] ? parameters[(i)] : (default))
 static void
 csi_dispatch(unsigned char byte)
 {
@@ -401,57 +402,35 @@ csi_dispatch(unsigned char byte)
 		parameter_index = MAX_PARAMETERS - 1;
 
 	switch (byte) {
-	case 0x40: // @ - ICH - Insert Character
-		insert_characters(parameters[0] ? parameters[0] : 1);
-		break;
-	case 0x41: // A - CUU - Cursor Up
-	case 0x42: // B - CUD - Cursor Down
-	case 0x43: // C - CUF - Cursor Forward
-	case 0x44: // D - CUB - Cursor Backward
-		move_cursor(byte, parameters[0] ? parameters[0] : 1);
-		break;
-	case 0x48: // H - CUP - Cursor Position
-	case 0x66: // f - HVP - Horizontal and Vertical Position
+	/*ICH    */ case '@': insert_characters(DEFAULT(0, 1)); break;
+	/*CUU    */ case 'A':
+	/*CUD    */ case 'B':
+	/*CUF    */ case 'C':
+	/*CUB    */ case 'D': move_cursor(byte, DEFAULT(0, 1)); break;
+	/*CUP    */ case 'H':
+	/*HVP    */ case 'f':
 		warpto(parameters[1] - 1, parameters[0] - 1 + (getmode(DECOM) ? scroll_top : 0));
 		break;
-	case 0x4A: // J - ED - Erase In Display
-		erase_display(parameters[0]);
-		break;
-	case 0x4B: // K - EL - Erase In Line
-		erase_line(parameters[0]);
-		break;
-	case 0x50: // P - DCH - Delete Character
-		delete_characters(parameters[0] ? parameters[0] : 1);
-		break;
-	case 0x58: // X - ECH - Erase Character
-		erase_characters(parameters[0] ? parameters[0] : 1);
-		break;
-	case 0x63: // c - DA - Device Attributes
+	/*ED     */ case 'J': erase_display(parameters[0]); break;
+	/*EL     */ case 'K': erase_line(parameters[0]); break;
+	/*DCH    */ case 'P': delete_characters(DEFAULT(0, 1)); break;
+	/*ECH    */ case 'X': erase_characters(DEFAULT(0, 1)); break;
+	/*DA     */ case 'c':
 		if (parameters[0] == 0)
 			ptwrite("%s", DEVICE_ATTRS);
 		break;
-	case 0x67: // g - TBC - Tabulation Clear
+	/*TBC    */ case 'g':
 		if (!parameters[0])
 			tabstops[cursor.x] = false;
 		else if (parameters[0] == 3)
 			memset(tabstops, 0, screen_width * sizeof(bool));
 		break;
-	case 0x68: // h - SM - Set Mode
-		set_ansi_mode(true);
-		break;
-	case 0x6C: // l - RM - Reset Mode
-		set_ansi_mode(false);
-		break;
-	case 0x6D: // m - SGR - Select Graphic Rendition
-		select_graphic_rendition();
-		break;
-	case 0x6E: // n - DSR - Device Status Report
-		device_status_report();
-		break;
-	case 0x71: // q - DECLL - Load LEDs
-		configure_leds();
-		break;
-	case 0x72: // r - DECSTBM - Set Top and Bottom Margins
+	/*SM     */ case 'h': set_ansi_mode(true); break;
+	/*RM     */ case 'l': set_ansi_mode(false); break;
+	/*SGR    */ case 'm': select_graphic_rendition(); break;
+	/*DSR    */ case 'n': device_status_report(); break;
+	/*DECLL  */ case 'q': configure_leds(); break;
+	/*DECSTBM*/ case 'r':
 		if (!parameters[0]) parameters[0] = 1;
 		if (!parameters[1] || parameters[1] > screen_height)
 			parameters[1] = screen_height;
@@ -472,12 +451,8 @@ static void
 csi_dispatch_private(unsigned char byte)
 {
 	switch (byte) {
-	case 0x68: // h - SM - Set Mode
-		set_dec_mode(true);
-		break;
-	case 0x6C: // l - RM - Reset Mode
-		set_dec_mode(false);
-		break;
+	/*SM*/ case 'h': set_dec_mode(true); break;
+	/*RM*/ case 'l': set_dec_mode(false); break;
 	}
 }
 

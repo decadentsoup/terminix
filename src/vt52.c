@@ -40,7 +40,7 @@ static enum state state;
 // 0x4E - N - Disable Loop-Back, Raster Modes
 // 0x51 - Q - Enable Raster Test
 void
-vt52(unsigned char byte)
+vt52(long byte)
 {
 	switch (state) {
 	case STATE_GROUND:

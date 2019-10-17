@@ -21,6 +21,7 @@ static char sequence_size, sequence_index;
 static long code_point;
 
 static void describe_byte(char *, size_t, unsigned char);
+static void interp(long);
 
 void
 unrecognized_escape(unsigned char i0, unsigned char i1, unsigned char final)
@@ -85,25 +86,11 @@ execute(unsigned char byte)
 	case 0x13: // Device Control 3 - XOFF
 		setmode(XOFF, true);
 		break;
-	// case 0x84: // Index
-	// case 0x85: // Next Line
-	// case 0x88: // Horizontal Tab Set
-	// case 0x8D: // Reverse Index
-	// case 0x8E: // Single Shift 2
-	// case 0x8F: // Single Shift 3
-	// case 0x90: // Device Control String
-	// case 0x98: // Start of String
-	// case 0x9A: // DECID
-	// case 0x9B: // Control Sequence Introducer
-	// case 0x9C: // String Terminator
-	// case 0x9D: // Operating System Command
-	// case 0x9E: // Privacy Message
-	// case 0x9F: // Application Program Command
 	}
 }
 
 void
-print(unsigned char byte)
+vtinterp(unsigned char byte)
 {
 	switch (sequence_size) {
 	case 0:
@@ -111,7 +98,7 @@ print(unsigned char byte)
 		code_point = 0;
 
 		if (!(byte & 0x80)) {
-			putch(byte);
+			interp(byte);
 		} else if ((byte & 0xE0) == 0xC0) {
 			sequence_size = 2;
 			code_point = (byte & ~0xE0) << 6;
@@ -123,19 +110,19 @@ print(unsigned char byte)
 			code_point = (byte & ~0xF8) << 18;
 		} else {
 			sequence_size = 0;
-			putch(0xFFFD);
+			interp(0xFFFD);
 		}
 
 		break;
 	case 2:
-		putch(code_point | (byte & ~0xC0));
+		interp(code_point | (byte & ~0xC0));
 		sequence_size = 0;
 		break;
 	case 3:
 		switch (sequence_index++) {
 		case 0: code_point |= (byte & ~0xC0) << 6; break;
 		default:
-			putch(code_point | (byte & ~0xC0));
+			interp(code_point | (byte & ~0xC0));
 			sequence_size = 0;
 			break;
 		}
@@ -145,10 +132,19 @@ print(unsigned char byte)
 		case 0: code_point |= (byte & ~0xC0) << 12; break;
 		case 1: code_point |= (byte & ~0xC0) << 6; break;
 		default:
-			putch(code_point | (byte & ~0xC0));
+			interp(code_point | (byte & ~0xC0));
 			sequence_size = 0;
 			break;
 		}
 		break;
 	}
+}
+
+static void
+interp(long code_point)
+{
+	if (getmode(DECANM))
+		vt100(code_point);
+	else
+		vt52(code_point);
 }

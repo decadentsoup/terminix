@@ -385,7 +385,7 @@ nextline()
 }
 
 void
-putch(long ch)
+print(long ch)
 {
 	struct cell *cell;
 	const uint32_t *charset;

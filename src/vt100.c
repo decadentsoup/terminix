@@ -75,30 +75,32 @@ static void change_color(int, const char *);
 #define NEXT(target) (state = STATE_##target)
 
 void
-vt100(unsigned char byte)
+vt100(long byte)
 {
-	// TODO : https://www.cl.cam.ac.uk/~mgk25/unicode.html#term
-	// Should we process UTF-8 data before passing it to this state machine?
-
 	// TODO : cleanup to the way OSC strings are handled to be more
 	// compliant with the behavior of DEC terminals
 
-	// TODO : support for 8-bit controls when enabled
-	// NOTE : 8-bit and UTF-8 cannot work at the same time
-
-	// substitute and cancel controls
-	// TODO : VT520 does not print 0xFFFD for CAN, only SUB
-	if (byte == 0x18 || byte == 0x1A) {
-		NEXT(GROUND);
-		putch(0xFFFD);
-		return;
-	}
-
-	// escape control
-	if (byte == 0x1B) {
+	switch (byte) {
+	/*CAN  */ case 0x18: NEXT(GROUND); return;
+	/*SUB  */ case 0x1A: print(0xFFFD); NEXT(GROUND); return;
+	/*ESC  */ case 0x1B:
 		if (state == STATE_OSC_STRING) osc_end();
 		NEXT(ESCAPE);
 		return;
+	/*IND  */ case 0x84: newline(); return;
+	/*NEL  */ case 0x85: nextline(); return;
+	/*HTS  */ case 0x88: settab(); return;
+	/*RI   */ case 0x8D: revline(); return;
+	/*SS2  */ case 0x8E: singleshift(G2); return;
+	/*SS3  */ case 0x8F: singleshift(G3); return;
+	/*DCS  */ case 0x90: NEXT(DCS_ENTRY); return;
+	/*SOS  */ case 0x98: NEXT(SOS_STRING); return;
+	/*DECID*/ case 0x9A: ptwrite("%s", DEVICE_ATTRS); return;
+	/*CSI  */ case 0x9B: NEXT(CSI_ENTRY); return;
+	/*ST   */ case 0x9C: osc_end(); NEXT(GROUND); return;
+	/*OSC  */ case 0x9D: osc_start(); NEXT(OSC_STRING); return;
+	/*PM   */ case 0x9E: NEXT(PM_STRING); return;
+	/*APC  */ case 0x9F: NEXT(APC_STRING); return;
 	}
 
 	switch (state) {

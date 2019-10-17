@@ -77,9 +77,9 @@ void ptpump(void);
 
 void unrecognized_escape(unsigned char, unsigned char, unsigned char);
 void execute(unsigned char);
-void print(unsigned char);
-void vt52(unsigned char);
-void vt100(unsigned char);
+void vtinterp(unsigned char);
+void vt52(long);
+void vt100(long);
 
 // --- unifont --- //
 
@@ -191,7 +191,7 @@ void scrolldown(void);
 void newline(void);
 void revline(void);
 void nextline(void);
-void putch(long);
+void print(long);
 
 static inline bool
 getmode(int flag)

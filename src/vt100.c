@@ -57,7 +57,6 @@ static const uint32_t *get_charset_94(unsigned char, unsigned char);
 static const uint32_t *get_charset_96(unsigned char);
 static void csi_dispatch(unsigned char);
 static void csi_dispatch_private(unsigned char);
-static void delete_character(void);
 static void device_status_report(void);
 static void configure_leds(void);
 static void set_ansi_mode(bool);
@@ -402,6 +401,9 @@ csi_dispatch(unsigned char byte)
 		parameter_index = MAX_PARAMETERS - 1;
 
 	switch (byte) {
+	case 0x40: // @ - ICH - Insert Character
+		insert_characters(parameters[0] ? parameters[0] : 1);
+		break;
 	case 0x41: // A - CUU - Cursor Up
 	case 0x42: // B - CUD - Cursor Down
 	case 0x43: // C - CUF - Cursor Forward
@@ -419,7 +421,10 @@ csi_dispatch(unsigned char byte)
 		erase_line(parameters[0]);
 		break;
 	case 0x50: // P - DCH - Delete Character
-		delete_character();
+		delete_characters(parameters[0] ? parameters[0] : 1);
+		break;
+	case 0x58: // X - ECH - Erase Character
+		erase_characters(parameters[0] ? parameters[0] : 1);
 		break;
 	case 0x63: // c - DA - Device Attributes
 		if (parameters[0] == 0)
@@ -474,29 +479,6 @@ csi_dispatch_private(unsigned char byte)
 		set_dec_mode(false);
 		break;
 	}
-}
-
-static void
-delete_character()
-{
-	struct line *line;
-	int max;
-
-	line = lines[cursor.y];
-
-	if (parameters[0] == 0)
-		parameters[0] = 1;
-
-	if (parameters[0] > (max = screen_width - cursor.x - 1))
-		parameters[0] = max;
-
-	memmove(&line->cells[cursor.x], &line->cells[cursor.x + parameters[0]],
-		(screen_width - parameters[0] - cursor.x) * sizeof(struct cell));
-
-	memset(&line->cells[screen_width - parameters[0]], 0,
-		parameters[0] * sizeof(struct cell));
-
-	cursor.last_column = false;
 }
 
 static void

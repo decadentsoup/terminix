@@ -244,6 +244,55 @@ tab()
 }
 
 void
+insert_characters(int n)
+{
+	struct line *line;
+	int max;
+
+	line = lines[cursor.y];
+
+	if (n > (max = screen_width - cursor.x - 1))
+		n = max;
+
+	memmove(&line->cells[cursor.x + n], &line->cells[cursor.x],
+		(screen_width - n - cursor.x) * sizeof(struct cell));
+
+	memset(&lines[cursor.y]->cells[cursor.x], 0, n * sizeof(struct cell));
+}
+
+void
+delete_characters(int n)
+{
+	struct line *line;
+	int max;
+
+	line = lines[cursor.y];
+
+	if (n > (max = screen_width - cursor.x - 1))
+		n = max;
+
+	memmove(&line->cells[cursor.x], &line->cells[cursor.x + n],
+		(screen_width - n - cursor.x) * sizeof(struct cell));
+
+	memset(&line->cells[screen_width - n], 0, n * sizeof(struct cell));
+
+	cursor.last_column = false;
+}
+
+void
+erase_characters(int n)
+{
+	int max;
+
+	if (n > (max = screen_width - cursor.x - 1))
+		n = max;
+
+	memset(&lines[cursor.y]->cells[cursor.x], 0, n * sizeof(struct cell));
+
+	cursor.last_column = false;
+}
+
+void
 erase_display(int param)
 {
 	int x, y, n;

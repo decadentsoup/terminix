@@ -41,7 +41,7 @@ enum state {
 };
 
 static enum state state;
-static unsigned char intermediate;
+static unsigned char intermediates[2];
 static unsigned short parameters[MAX_PARAMETERS];
 static unsigned char parameter_index;
 static char osc[512];
@@ -60,7 +60,8 @@ static void csi_dispatch_private(unsigned char);
 static void delete_character(void);
 static void device_status_report(void);
 static void configure_leds(void);
-static void set_mode(bool);
+static void set_ansi_mode(bool);
+static void set_dec_mode(bool);
 static void select_graphic_rendition(void);
 static void osc_start(void);
 static void osc_put(unsigned char);
@@ -106,7 +107,7 @@ vt100(unsigned char byte)
 		print(byte);
 		break;
 	case STATE_ESCAPE:
-		intermediate = 0;
+		memset(intermediates, 0, sizeof(intermediates));
 		parameter_index = 0;
 		memset(parameters, 0, sizeof(parameters));
 
@@ -152,19 +153,11 @@ vt100(unsigned char byte)
 		COND(byte >= 0x40 && byte <= 0x7E, NEXT(GROUND));
 		break;
 	case STATE_DCS_ENTRY:
-		warnx("TODO : STATE_DCS_ENTRY");
-		break;
 	case STATE_DCS_PARAM:
-		warnx("TODO : STATE_DCS_PARAM");
-		break;
 	case STATE_DCS_INTERMEDIATE:
-		warnx("TODO : STATE_DCS_INTERMEDIATE");
-		break;
 	case STATE_DCS_PASSTHROUGH:
-		warnx("TODO : STATE_DCS_PASSTHROUGH");
-		break;
 	case STATE_DCS_IGNORE:
-		warnx("TODO : STATE_DCS_IGNORE");
+		warnx("TODO : Device Control Strings");
 		break;
 	case STATE_OSC_STRING:
 		COND(byte == 0x07, osc_end(); NEXT(GROUND));
@@ -181,7 +174,12 @@ vt100(unsigned char byte)
 static void
 collect(unsigned char byte)
 {
-	intermediate = intermediate ? 0xFF : byte;
+	if (!intermediates[0])
+		intermediates[0] = byte;
+	else if (!intermediates[1])
+		intermediates[1] = byte;
+	else
+		intermediates[0] = 255;
 }
 
 static void
@@ -210,8 +208,9 @@ esc_dispatch(unsigned char byte)
 {
 	NEXT(GROUND);
 
-	switch (intermediate) {
+	switch (intermediates[0]) {
 	case 0:
+		if (intermediates[1]) break;
 		switch (byte) {
 		/*DECBI  */ case '6': warnx("TODO : Back Index"); return;
 		/*DECSC  */ case '7': save_cursor(); return;
@@ -242,12 +241,14 @@ esc_dispatch(unsigned char byte)
 		}
 		break;
 	case ' ':
+		if (intermediates[1]) break;
 		switch (byte) {
 		/*S7C1T*/ case 'F': setmode(S8C1T, false); return;
 		/*S8C1T*/ case 'G': setmode(S8C1T, true); return;
 		}
 		break;
 	case '#':
+		if (intermediates[1]) break;
 		switch (byte) {
 		/*DECDHL*/ case '3': setlinea(DOUBLE_HEIGHT_TOP); return;
 		/*DECDHL*/ case '4': setlinea(DOUBLE_HEIGHT_BOTTOM); return;
@@ -256,17 +257,24 @@ esc_dispatch(unsigned char byte)
 		/*DECALN*/ case '8': screen_align(); return;
 		}
 		break;
+	case '%':
+		if (intermediates[1]) break;
+		switch (byte) {
+		case '@': warnx("TODO : deactivate UTF-8 if possible"); return;
+		case 'G': warnx("TODO : activate UTF-8 reversibly"); return;
+		}
+		break;
 	case '(':
-		setcharset(G0, get_charset_94(0, byte));
+		setcharset(G0, get_charset_94(intermediates[1], byte));
 		return;
 	case ')':
-		setcharset(G1, get_charset_94(0, byte));
+		setcharset(G1, get_charset_94(intermediates[1], byte));
 		return;
 	case '*':
-		setcharset(G2, get_charset_94(0, byte));
+		setcharset(G2, get_charset_94(intermediates[1], byte));
 		return;
 	case '+':
-		setcharset(G3, get_charset_94(0, byte));
+		setcharset(G3, get_charset_94(intermediates[1], byte));
 		return;
 	case '-':
 		setcharset(G1, get_charset_96(byte));
@@ -277,9 +285,12 @@ esc_dispatch(unsigned char byte)
 	case '/':
 		setcharset(G3, get_charset_96(byte));
 		return;
+	case 255:
+		warnx("too many intermediates in escape sequence");
+		return;
 	}
 
-	unrecognized_escape(intermediate, byte);
+	unrecognized_escape(intermediates[0], intermediates[1], byte);
 }
 
 static const uint32_t *
@@ -362,12 +373,17 @@ csi_dispatch(unsigned char byte)
 {
 	NEXT(GROUND);
 
-	if (intermediate == 0x3F) {
+	if (intermediates[0] == 255 || intermediates[1]) {
+		warnx("too many intermediates in CSI sequence");
+		return;
+	}
+
+	if (intermediates[0] == 0x3F) {
 		csi_dispatch_private(byte);
 		return;
 	}
 
-	if (intermediate)
+	if (intermediates[0])
 		return;
 
 	if (parameter_index == MAX_PARAMETERS)
@@ -404,10 +420,10 @@ csi_dispatch(unsigned char byte)
 			memset(tabstops, 0, screen_width * sizeof(bool));
 		break;
 	case 0x68: // h - SM - Set Mode
-		set_mode(true);
+		set_ansi_mode(true);
 		break;
 	case 0x6C: // l - RM - Reset Mode
-		set_mode(false);
+		set_ansi_mode(false);
 		break;
 	case 0x6D: // m - SGR - Select Graphic Rendition
 		select_graphic_rendition();
@@ -440,10 +456,10 @@ csi_dispatch_private(unsigned char byte)
 {
 	switch (byte) {
 	case 0x68: // h - SM - Set Mode
-		set_mode(true);
+		set_dec_mode(true);
 		break;
 	case 0x6C: // l - RM - Reset Mode
-		set_mode(false);
+		set_dec_mode(false);
 		break;
 	}
 }
@@ -472,34 +488,39 @@ delete_character()
 }
 
 static void
-set_mode(bool value)
+set_ansi_mode(bool value)
 {
 	int i;
 
 	for (i = 0; i <= parameter_index; i++)
-		if (!intermediate) {
-			if (parameters[i] == 20)
-				setmode(LNM, value);
-			else
-				warnx("set mode %i=%i", parameters[i], value);
-		} else if (intermediate == 0x3F) {
-			switch (parameters[i]) {
-			case 1: setmode(DECCKM, value); break;
-			case 2: setmode(DECANM, value); break;
-			case 3: resize(value ? 132 : 80, screen_height); break;
-			case 4: setmode(DECSCLM, value); break;
-			case 5: setmode(DECSCNM, value); break;
-			case 6:
-				warpto(0, setmode(DECOM, value) ? scroll_top : 0);
-				break;
-			case 7: setmode(DECAWM, value); break;
-			case 8: setmode(DECARM, value); break;
-			case 9: setmode(DECINLM, value); break;
-			case 25: setmode(DECTCEM, value); break;
-			default:
-				warnx("set mode ?%i=%i", parameters[i], value);
-				break;
-			}
+		if (parameters[i] == 20)
+			setmode(LNM, value);
+		else
+			warnx("set mode %i=%i", parameters[i], value);
+}
+
+static void
+set_dec_mode(bool value)
+{
+	int i;
+
+	for (i = 0; i <= parameter_index; i++)
+		switch (parameters[i]) {
+		case 1: setmode(DECCKM, value); break;
+		case 2: setmode(DECANM, value); break;
+		case 3: resize(value ? 132 : 80, screen_height); break;
+		case 4: setmode(DECSCLM, value); break;
+		case 5: setmode(DECSCNM, value); break;
+		case 6:
+			warpto(0, setmode(DECOM, value) ? scroll_top : 0);
+			break;
+		case 7: setmode(DECAWM, value); break;
+		case 8: setmode(DECARM, value); break;
+		case 9: setmode(DECINLM, value); break;
+		case 25: setmode(DECTCEM, value); break;
+		default:
+			warnx("set mode ?%i=%i", parameters[i], value);
+			break;
 		}
 }
 

@@ -219,7 +219,7 @@ vt52(unsigned char byte)
 			setmode(DECAWM, false);
 			break;
 		default:
-			unrecognized_escape(0, byte);
+			unrecognized_escape(0, 0, byte);
 			break;
 		}
 

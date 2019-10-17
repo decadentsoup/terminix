@@ -23,16 +23,18 @@ static long code_point;
 static void describe_byte(char *, size_t, unsigned char);
 
 void
-unrecognized_escape(unsigned char intermediate, unsigned char byte)
+unrecognized_escape(unsigned char i0, unsigned char i1, unsigned char final)
 {
 	const char *name;
-	char ibuf[16], bbuf[16];
+	char ibuf0[16], ibuf1[16], bbuf[16];
 
 	name = getmode(DECANM) ? "ANSI" : "VT52";
-	describe_byte(ibuf, sizeof(ibuf), intermediate);
-	describe_byte(bbuf, sizeof(bbuf), byte);
+	describe_byte(ibuf0, sizeof(ibuf0), i0);
+	describe_byte(ibuf1, sizeof(ibuf1), i1);
+	describe_byte(bbuf, sizeof(bbuf), final);
 
-	warnx("unrecognized escape: mode=%s intermediate=%s byte=%s", name, ibuf, bbuf);
+	warnx("unrecognized escape: mode=%s i0=%s i1=%s f=%s", name, ibuf0,
+		ibuf1, bbuf);
 }
 
 static void

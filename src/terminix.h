@@ -75,7 +75,7 @@ void ptpump(void);
 
 // --- escape codes --- //
 
-void unrecognized_escape(unsigned char, unsigned char);
+void unrecognized_escape(unsigned char, unsigned char, unsigned char);
 void execute(unsigned char);
 void print(unsigned char);
 void vt52(unsigned char);

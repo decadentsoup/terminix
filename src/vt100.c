@@ -258,10 +258,20 @@ esc_dispatch(unsigned char byte)
 		}
 		break;
 	case '%':
-		if (intermediates[1]) break;
-		switch (byte) {
-		case '@': warnx("TODO : deactivate UTF-8 if possible"); return;
-		case 'G': warnx("TODO : activate UTF-8 reversibly"); return;
+		switch (intermediates[1]) {
+		case 0:
+			switch (byte) {
+			case '@': warnx("TODO : deactivate UTF-8 if possible"); return;
+			case 'G': warnx("TODO : activate UTF-8 reversibly"); return;
+			}
+			break;
+		case '/':
+			switch (byte) {
+			case 'G': warnx("TODO : activate UTF-8 level 1 irreversibly"); return;
+			case 'H': warnx("TODO : activate UTF-8 level 2 irreversibly"); return;
+			case 'I': warnx("TODO : activate UTF-8 level 3 irreversibly"); return;
+			}
+			break;
 		}
 		break;
 	case '(':

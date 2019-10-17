@@ -263,8 +263,8 @@ esc_dispatch(unsigned char byte)
 		switch (intermediates[1]) {
 		case 0:
 			switch (byte) {
-			case '@': warnx("TODO : deactivate UTF-8 if possible"); return;
-			case 'G': warnx("TODO : activate UTF-8 reversibly"); return;
+			case '@': setmode(UTF8, false); return;
+			case 'G': setmode(UTF8, true); return;
 			}
 			break;
 		case '/':

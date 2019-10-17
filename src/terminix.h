@@ -108,22 +108,23 @@ enum { UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE };
 enum { FRAME_NONE, FRAME_FRAMED, FRAME_ENCIRCLED };
 
 enum {
-	XOFF	= 1 <<  0, // Data transmission disabled by an XOFF octet.
-	PAUSED	= 1 <<  1, // Used by xlib.c to track sent XON/XOFF signals.
-	AUTOPRINT=1 <<  2, // TODO : Autoprint line on LF, FF, VT, or DECAWM
-	VT52GFX	= 1 <<  3, // VT52 Graphic Character Set Enabled
-	S8C1T	= 1 <<  4, // Send 8-bit control sequences (TODO : implement)
-	LNM	= 1 <<  5, // Line Feed/New Line Mode
-	DECKPAM	= 1 <<  6, // Keypad Application Mode
-	DECCKM	= 1 <<  7, // Cursor Keys Mode
-	DECANM	= 1 <<  8, // ANSI/VT52 Mode
-	DECSCLM	= 1 <<  9, // Scrolling Mode (TODO : implement)
-	DECSCNM	= 1 << 10, // Screen Mode
-	DECOM	= 1 << 11, // Origin Mode
-	DECAWM	= 1 << 12, // Autowrap Mode
-	DECARM	= 1 << 13, // Auto Repeat Mode
-	DECINLM	= 1 << 14, // Interlace Mode (TODO : implement)
-	DECTCEM	= 1 << 15  // Text Cursor Enable Mode
+	UTF8	= 1 <<  0, // Enable UTF-8 interpreter.
+	XOFF	= 1 <<  1, // Data transmission disabled by an XOFF octet.
+	PAUSED	= 1 <<  2, // Used by xlib.c to track sent XON/XOFF signals.
+	AUTOPRINT=1 <<  3, // TODO : Autoprint line on LF, FF, VT, or DECAWM
+	VT52GFX	= 1 <<  4, // VT52 Graphic Character Set Enabled
+	S8C1T	= 1 <<  5, // Send 8-bit control sequences (TODO : implement)
+	LNM	= 1 <<  6, // Line Feed/New Line Mode
+	DECKPAM	= 1 <<  7, // Keypad Application Mode
+	DECCKM	= 1 <<  8, // Cursor Keys Mode
+	DECANM	= 1 <<  9, // ANSI/VT52 Mode
+	DECSCLM	= 1 << 10, // Scrolling Mode (TODO : implement)
+	DECSCNM	= 1 << 11, // Screen Mode
+	DECOM	= 1 << 12, // Origin Mode
+	DECAWM	= 1 << 13, // Autowrap Mode
+	DECARM	= 1 << 14, // Auto Repeat Mode
+	DECINLM	= 1 << 15, // Interlace Mode (TODO : implement)
+	DECTCEM	= 1 << 16  // Text Cursor Enable Mode
 };
 
 // From the days of yore, when Unicode wasn't available on terminals and
@@ -169,7 +170,7 @@ extern const uint32_t
 extern const struct cell default_attrs;
 
 extern struct color palette[256];
-extern int mode;
+extern long mode;
 extern struct cursor cursor, saved_cursor;
 extern bool *tabstops;
 extern struct line **lines;
@@ -194,13 +195,13 @@ void nextline(void);
 void print(long);
 
 static inline bool
-getmode(int flag)
+getmode(long flag)
 {
 	return mode & flag;
 }
 
 static inline bool
-setmode(int flag, bool value)
+setmode(long flag, bool value)
 {
 	value ? (mode |= flag) : (mode &= ~flag);
 	return value;

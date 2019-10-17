@@ -117,7 +117,7 @@ const struct cell default_attrs = {
 };
 
 struct color palette[256];
-int mode;
+long mode;
 struct cursor cursor, saved_cursor;
 bool *tabstops;
 struct line **lines;

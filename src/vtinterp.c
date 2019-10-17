@@ -50,8 +50,6 @@ describe_byte(char *buffer, size_t bufsize, unsigned char byte)
 void
 execute(unsigned char byte)
 {
-	// TODO : move implementation details to screen.c
-
 	switch (byte) {
 	case 0x05: // Enquiry
 		ptwrite("%s", answerback);
@@ -92,6 +90,11 @@ execute(unsigned char byte)
 void
 vtinterp(unsigned char byte)
 {
+	if (!getmode(UTF8)) {
+		interp(byte);
+		return;
+	}
+
 	switch (sequence_size) {
 	case 0:
 		sequence_index = 0;

@@ -192,6 +192,8 @@ void scrolldown(void);
 void newline(void);
 void revline(void);
 void nextline(void);
+void linefeed(void);
+void carriagereturn(void);
 void print(long);
 
 static inline bool

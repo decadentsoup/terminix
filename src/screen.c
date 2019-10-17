@@ -385,6 +385,21 @@ nextline()
 }
 
 void
+linefeed()
+{
+	newline();
+
+	if (getmode(LNM))
+		cursor.x = 0;
+}
+
+void
+carriagereturn()
+{
+	cursor.x = 0;
+}
+
+void
 print(long ch)
 {
 	struct cell *cell;

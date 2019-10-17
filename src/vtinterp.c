@@ -51,39 +51,18 @@ void
 execute(unsigned char byte)
 {
 	switch (byte) {
-	case 0x05: // Enquiry
-		ptwrite("%s", answerback);
-		break;
-	case 0x07: // Bell
-		wmbell();
-		break;
-	case 0x08: // Backspace
-		move_cursor(0x44, 1);
-		break;
-	case 0x09: // Horizontal Tab
-		tab();
-		break;
-	case 0x0A: // Line Feed
-	case 0x0B: // Vertical Tab
-	case 0x0C: // Form Feed
-		newline();
-		if (getmode(LNM)) cursor.x = 0;
-		break;
-	case 0x0D: // Carriage Return
-		cursor.x = 0;
-		break;
-	case 0x0E: // Shift Out
-		lockingshift(GL, G1);
-		break;
-	case 0x0F: // Shift In
-		lockingshift(GL, G0);
-		break;
-	case 0x11: // Device Control 1 - XON
-		setmode(XOFF, false);
-		break;
-	case 0x13: // Device Control 3 - XOFF
-		setmode(XOFF, true);
-		break;
+	/*ENQ*/ case 0x05: ptwrite("%s", answerback); break;
+	/*BEL*/ case 0x07: wmbell(); break;
+	/*BS */ case 0x08: move_cursor(0x44, 1); break;
+	/*HT */ case 0x09: tab(); break;
+	/*LF */ case 0x0A:
+	/*VT */ case 0x0B:
+	/*FF */ case 0x0C: linefeed(); break;
+	/*CR */ case 0x0D: carriagereturn(); break;
+	/*SO */ case 0x0E: lockingshift(GL, G1); break;
+	/*SI */ case 0x0F: lockingshift(GL, G0); break;
+	/*DC1*/ case 0x11: setmode(XOFF, false); break;
+	/*DC3*/ case 0x13: setmode(XOFF, true); break;
 	}
 }
 

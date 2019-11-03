@@ -69,7 +69,7 @@ static void change_colors(const char *);
 static void change_color(int, const char *);
 
 #define COND(condition, action) \
-	do { if (condition) { action; return; } } while(0);
+	do { if (condition) { action; return; } } while(0)
 
 #define NEXT(target) (state = STATE_##target)
 
